@@ -1,31 +1,68 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.db.session import get_db
-from app.domain.models.user import User
-from app.core.security import create_access_token
+from app.application.services.user_service import UserService
+from app.core.security import create_access_token, get_current_user
+from app.schema.user_schema import UserLoginRequest, UserLoginResponse
 
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["autenticación"])
 
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
+@router.post("/login", response_model=UserLoginResponse, summary="Login de usuario")
+async def login(
+    login_request: UserLoginRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Autenticarse en el sistema con email y contraseña.
+
+    Retorna un token JWT válido por la duración configurada en el servidor.
+
+    **Requisitos:**
+    - El usuario debe existir
+    - Las credenciales deben ser correctas
+    - El usuario debe estar activo (no desactivado)
+    """
+    # Autenticar usuario
+    user = await UserService.authenticate_user(
+        db,
+        login_request.correo,
+        login_request.password
+    )
+
+    # Crear token JWT
+    access_token = create_access_token(user.id_usuario, user.correo, user.rol)
+
+    return UserLoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        usuario={
+            "id_usuario": user.id_usuario,
+            "nombre_completo": user.nombre_completo,
+            "correo": user.correo,
+            "rol": user.rol,
+            "activo": user.activo
+        }
+    )
 
 
-@router.post("/login")
-async def login(request: LoginRequest, db: Session = Depends(get_db)):
-    """Autenticación mock - cualquier contraseña si el usuario existe."""
-    result = await db.execute(select(User).where(User.nombre == request.username))
-    user = result.scalar_one_or_none()
+@router.post("/refresh-token", response_model=UserLoginResponse, summary="Refrescar token")
+async def refresh_token(current_user: dict = Depends(get_current_user)):
+    """
+    Refrescar el token JWT para extender la sesión.
 
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuario no encontrado",
-        )
+    Nota: Este endpoint requiere un token válido en el header.
+    """
+    access_token = create_access_token(
+        current_user["user_id"],
+        current_user["email"],
+        current_user["rol"]
+    )
 
-    access_token = create_access_token(request.username)
-    return {"access_token": access_token, "token_type": "bearer"}
+    return UserLoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        usuario=current_user
+    )
+
