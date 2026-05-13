@@ -162,20 +162,4 @@ class UserService:
 
         return user
 
-    @staticmethod
-    def verify_role_access(user_role: str, required_roles: list[str]) -> bool:
-        """
-        Verifica si un rol tiene acceso a una funcionalidad específica.
-        
-        Args:
-            user_role: Rol del usuario actual
-            required_roles: Lista de roles permitidos
-            
-        Returns:
-            True si el usuario tiene acceso, False en caso contrario
-            
-        Ejemplo:
-            if UserService.verify_role_access(user_role, [UserRole.ADMIN.value]):
-                # Procesar operación
-        """
-        return user_role in required_roles
+    

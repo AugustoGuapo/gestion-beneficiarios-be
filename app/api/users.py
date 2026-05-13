@@ -45,6 +45,18 @@ async def list_users(
 
     **Permisos:** Requiere estar autenticado
     """
+    # Restringir listado completo a roles administrativos (principio de mínimo privilegio)
+    admin_roles = [
+        UserRole.ADMIN.value,
+        UserRole.COORDINADOR_LOGISTICA.value
+    ]
+
+    if current_user["rol"] not in admin_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permisos para listar todos los usuarios"
+        )
+
     users = await UserService.get_all_users(db, skip=skip, limit=limit)
     return users
 

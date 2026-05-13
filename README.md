@@ -139,7 +139,7 @@ La colección ya contiene scripts para guardar el token y variables de entorno.
 **Request:**
 ```json
 {
-  "username": "Admin Principal",
+  "correo": "admin@sgah.com",
   "password": "cualquiera"
 }
 ```
@@ -156,7 +156,7 @@ La colección ya contiene scripts para guardar el token y variables de entorno.
 
 | Método | Endpoint | Descripción | Auth |
 |--------|----------|------------|------|
-| GET | `/users/` | Listar todos los usuarios | ✅ |
+| GET | `/users/` | Listar todos los usuarios (solo ADMIN y COORDINADOR_LOGISTICA) | ✅ |
 | GET | `/users/{id}` | Obtener usuario por ID | ✅ |
 | POST | `/users/` | Crear nuevo usuario | ✅ |
 
