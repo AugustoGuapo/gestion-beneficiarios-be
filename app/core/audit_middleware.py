@@ -1,10 +1,9 @@
 import json
 import logging
 
-from jose import JWTError, jwt
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.core.config import settings
+from app.core.security import get_username_from_authorization_header
 from app.domain.models.audit_log import AuditLog
 from app.infrastructure.db.session import SessionLocal
 
@@ -46,30 +45,6 @@ def mask_sensitive_payload(payload):
     }
 
 
-def get_username_from_request(request):
-    auth_header = request.headers.get("authorization")
-
-    if not auth_header:
-        return None
-
-    if not auth_header.lower().startswith("bearer "):
-        return None
-
-    token = auth_header.split(" ")[1]
-
-    try:
-        payload = jwt.decode(
-            token,
-            settings.jwt_secret_key,
-            algorithms=[settings.jwt_algorithm],
-        )
-
-        return payload.get("sub")
-
-    except JWTError:
-        return None
-
-
 class AuditMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
@@ -93,7 +68,9 @@ class AuditMiddleware(BaseHTTPMiddleware):
         try:
             async with SessionLocal() as db:
                 audit_log = AuditLog(
-                    username=get_username_from_request(request),
+                    username=get_username_from_authorization_header(
+                        request.headers.get("authorization")
+                    ),
                     method=request.method,
                     endpoint=request.url.path,
                     action=get_action_from_method(request.method),

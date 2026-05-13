@@ -88,3 +88,20 @@ def check_role(required_roles: list[UserRole]) -> Callable:
         return current_user
 
     return role_checker
+
+
+def get_username_from_authorization_header(auth_header: str | None) -> str | None:
+    """Extrae el usuario desde el header Authorization si el token es válido."""
+    if not auth_header:
+        return None
+
+    if not auth_header.lower().startswith("bearer "):
+        return None
+
+    token = auth_header.split(" ")[1]
+
+    try:
+        payload = verify_token(token)
+        return payload.get("sub")
+    except HTTPException:
+        return None
