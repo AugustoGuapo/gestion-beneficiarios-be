@@ -3,7 +3,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.db.session import get_db
 from app.application.services.user_service import UserService
 from app.core.security import create_access_token, get_current_user
-from app.schema.user_schema import UserLoginRequest, UserLoginResponse
+from app.schema.user_schema import (
+    ChangePasswordRequest,
+    MessageResponse,
+    UserLoginRequest,
+    UserLoginResponse,
+)
 
 
 router = APIRouter(prefix="/auth", tags=["autenticación"])
@@ -81,4 +86,32 @@ async def refresh_token(
             "activo": user.activo
         }
     )
+
+
+@router.post(
+    "/change-password",
+    response_model=MessageResponse,
+    summary="Cambiar contraseña propia"
+)
+async def change_password(
+    password_request: ChangePasswordRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Cambiar la contraseña del usuario autenticado.
+
+    **Requisitos:**
+    - Debe estar autenticado
+    - Debe enviar la contraseña actual correcta
+    - La nueva contraseña debe cumplir la política definida
+    """
+    await UserService.change_password(
+        db,
+        current_user["user_id"],
+        password_request.current_password,
+        password_request.new_password,
+    )
+
+    return MessageResponse(detail="Contraseña actualizada correctamente")
 

@@ -162,4 +162,33 @@ class UserService:
 
         return user
 
-    
+    @staticmethod
+    async def change_password(
+        db: AsyncSession,
+        user_id: int,
+        current_password: str,
+        new_password: str,
+    ) -> User:
+        """Cambia la contraseña del usuario autenticado."""
+        user = await UserService.get_user_by_id(db, user_id)
+
+        if not verify_password(current_password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La contraseña actual es incorrecta"
+            )
+
+        if verify_password(new_password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La nueva contraseña no puede ser igual a la actual"
+            )
+
+        user.password_hash = hash_password(new_password)
+
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        return user
+
+

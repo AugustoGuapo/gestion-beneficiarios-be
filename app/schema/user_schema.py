@@ -55,6 +55,24 @@ class UserLoginResponse(BaseModel):
     usuario: dict = Field(..., description="Datos básicos del usuario autenticado")
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., min_length=1, max_length=100, description="Contraseña actual")
+    new_password: str = Field(..., min_length=8, max_length=100, description="Nueva contraseña")
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, v):
+        if not any(c.isupper() for c in v):
+            raise ValueError("La contraseña debe contener al menos una mayúscula")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("La contraseña debe contener al menos un número")
+        return v
+
+
+class MessageResponse(BaseModel):
+    detail: str
+
+
 class UserListResponse(BaseModel):
     id_usuario: int
     nombre_completo: str
