@@ -33,7 +33,7 @@ CREATE TYPE nivel_riesgo_tipo AS ENUM ('bajo', 'medio', 'alto', 'crítico');
 CREATE TABLE zona (
     id_zona INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
-    nivel_riesgo nivel_riesgo_tipo NOT NULL
+    nivel_riesgo_tipo nivel_riesgo_tipo NOT NULL
 );
 
 -- =========================
@@ -213,7 +213,7 @@ CREATE TABLE usuario (
 -- ==========================================
 
 -- ZONAS
-INSERT INTO zona (nombre, nivel_riesgo) VALUES
+INSERT INTO zona (nombre, nivel_riesgo_tipo) VALUES
 ('Zona Norte', 'alto'),
 ('Zona Sur', 'medio'),
 ('Zona Centro', 'bajo'),
