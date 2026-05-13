@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api import audit_logs, auth, distribuciones, personas, users, zonas
+from app.api import audit_logs, auth, distribuciones, entregas, personas, users, zonas
 from app.core.audit_middleware import AuditMiddleware
 
 app = FastAPI()
@@ -12,3 +12,4 @@ app.include_router(personas.router)
 app.include_router(zonas.router)
 app.include_router(audit_logs.router)
 app.include_router(distribuciones.router)
+app.include_router(entregas.router)
