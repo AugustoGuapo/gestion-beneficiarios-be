@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.db.session import get_db
 from app.domain.models.persona import Persona
 from app.domain.models.familia import Familia
@@ -23,7 +23,7 @@ async def get_personas(
         UserRole.FUNCIONARIO_CONTROL,
     ])),
     db: Session = Depends(get_db),
-):
+    ):
     result = await db.execute(select(Persona))
     personas = result.scalars().all()
     return personas

@@ -81,4 +81,3 @@ async def refresh_token(
             "activo": user.activo
         }
     )
-
