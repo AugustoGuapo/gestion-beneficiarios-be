@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from app.infrastructure.db.session import get_db
 from app.domain.models.user import User
@@ -16,7 +16,7 @@ class LoginRequest(BaseModel):
 
 
 @router.post("/login")
-async def login(request: LoginRequest, db: Session = Depends(get_db)):
+async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
     """Autenticación mock - cualquier contraseña si el usuario existe."""
     result = await db.execute(select(User).where(User.nombre == request.username))
     user = result.scalar_one_or_none()

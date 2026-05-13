@@ -160,6 +160,7 @@ curl http://localhost:8000/docs
 |--------|----------|------------|------|
 | GET | `/personas/` | Listar todas las personas | ✅ |
 | GET | `/personas/{id}` | Obtener persona por ID | ✅ |
+| POST | `/personas/` | Crear nueva persona | ✅ |
 
 ### Zonas
 
@@ -167,6 +168,7 @@ curl http://localhost:8000/docs
 |--------|----------|------------|------|
 | GET | `/zonas/` | Listar todas las zonas | ✅ |
 | GET | `/zonas/{id}` | Obtener zona por ID | ✅ |
+| POST | `/zonas/` | Crear nueva zona | ✅ |
 
 ## Uso de la API
 

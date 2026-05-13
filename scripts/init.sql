@@ -28,9 +28,12 @@ CREATE TABLE familia (
 -- =========================
 -- TABLA ZONA
 -- =========================
+CREATE TYPE nivel_riesgo_tipo AS ENUM ('bajo', 'medio', 'alto', 'crítico');
+
 CREATE TABLE zona (
     id_zona INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL
+    nombre VARCHAR(100) NOT NULL,
+    nivel_riesgo nivel_riesgo_tipo NOT NULL
 );
 
 -- =========================
@@ -210,12 +213,12 @@ CREATE TABLE usuario (
 -- ==========================================
 
 -- ZONAS
-INSERT INTO zona (nombre) VALUES
-('Zona Norte'),
-('Zona Sur'),
-('Zona Centro'),
-('Zona Rural Este'),
-('Zona Rural Oeste');
+INSERT INTO zona (nombre, nivel_riesgo) VALUES
+('Zona Norte', 'alto'),
+('Zona Sur', 'medio'),
+('Zona Centro', 'bajo'),
+('Zona Rural Este', 'crítico'),
+('Zona Rural Oeste', 'medio');
 
 -- UBICACIONES
 INSERT INTO ubicacion (direccion, id_zona) VALUES
