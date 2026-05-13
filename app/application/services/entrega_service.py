@@ -19,12 +19,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.domain.models.audit_log import AuditLog
 from app.domain.models.bodega import Bodega
 from app.domain.models.detalle_entrega import DetalleEntrega
 from app.domain.models.entrega import Entrega
 from app.domain.models.familia import Familia
 from app.domain.models.movimiento_inventario import MovimientoInventario
 from app.domain.models.recurso import Recurso
+from app.infrastructure.db.session import SessionLocal
 from app.schema.entrega_schema import DetalleEntregaItem, EntregaCreate
 
 CODIGO_PREFIJO = "ENT"
@@ -131,6 +133,87 @@ class EntregaService:
             )
 
     @staticmethod
+    async def _registrar_auditoria_duplicado(
+        username: str | None,
+        ip_address: str | None,
+        payload: EntregaCreate,
+        id_entrega_existente: int,
+        codigo_existente: str | None,
+    ) -> None:
+        """Registra en `audit_log` el intento bloqueado por entrega duplicada (HU-23).
+
+        Usa una sesión independiente (`SessionLocal`) para que el registro de
+        auditoría persista incluso si la transacción principal fue revertida.
+        """
+        try:
+            async with SessionLocal() as audit_db:
+                audit_db.add(
+                    AuditLog(
+                        username=username,
+                        method="POST",
+                        endpoint="/entregas/",
+                        action="DUPLICATE_BLOCKED",
+                        status_code=status.HTTP_409_CONFLICT,
+                        ip_address=ip_address,
+                        payload={
+                            "motivo": "entrega duplicada (misma familia y misma fecha)",
+                            "id_familia": payload.id_familia,
+                            "fecha_efectiva": payload.fecha_efectiva.isoformat(),
+                            "entrega_existente_id": id_entrega_existente,
+                            "entrega_existente_codigo": codigo_existente,
+                        },
+                    )
+                )
+                await audit_db.commit()
+        except Exception:
+            # Auditoría es best-effort: nunca debe tumbar el flujo principal.
+            pass
+
+    @staticmethod
+    async def _validar_no_duplicada(
+        db: AsyncSession,
+        payload: EntregaCreate,
+        username: str | None,
+        ip_address: str | None,
+    ) -> None:
+        """HU-23: bloquea entregas duplicadas (misma familia + misma fecha_efectiva).
+
+        Las entregas con estado='ANULADA' no se consideran (se permite re-entregar
+        si una previa fue anulada).
+        """
+        stmt = (
+            select(Entrega.id_entrega, Entrega.codigo)
+            .where(
+                Entrega.id_familia == payload.id_familia,
+                Entrega.fecha_efectiva == payload.fecha_efectiva,
+                Entrega.estado != "ANULADA",
+            )
+            .limit(1)
+        )
+        result = await db.execute(stmt)
+        row = result.first()
+
+        if row is None:
+            return
+
+        id_existente, codigo_existente = row
+        await EntregaService._registrar_auditoria_duplicado(
+            username=username,
+            ip_address=ip_address,
+            payload=payload,
+            id_entrega_existente=id_existente,
+            codigo_existente=codigo_existente,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Entrega duplicada: la familia {payload.id_familia} ya tiene una entrega "
+                f"registrada para la fecha {payload.fecha_efectiva.isoformat()} "
+                f"(entrega existente: {codigo_existente or id_existente})."
+            ),
+        )
+
+    @staticmethod
     async def _validar_y_resolver_items(
         db: AsyncSession,
         items: list[DetalleEntregaItem],
@@ -190,8 +273,16 @@ class EntregaService:
     async def registrar_entrega(
         db: AsyncSession,
         payload: EntregaCreate,
+        username: str | None = None,
+        ip_address: str | None = None,
     ) -> Entrega:
         await EntregaService._validar_familia(db, payload.id_familia)
+        await EntregaService._validar_no_duplicada(
+            db=db,
+            payload=payload,
+            username=username,
+            ip_address=ip_address,
+        )
         items_resueltos = await EntregaService._validar_y_resolver_items(db, payload.items)
 
         anio = (payload.fecha_efectiva or date.today()).year
