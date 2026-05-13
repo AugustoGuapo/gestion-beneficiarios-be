@@ -6,9 +6,10 @@ Provee:
 - Sesión de base de datos de prueba
 - Token JWT pre-generado para endpoints protegidos
 """
+
 import os
 import sys
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import pytest
 import pytest_asyncio
@@ -17,9 +18,8 @@ from httpx import ASGITransport, AsyncClient
 # Asegurar que el proyecto está en el path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.main import app
-from app.core.config import settings
 from app.core.security import create_access_token
+from app.main import app
 
 
 @pytest.fixture(scope="session")
@@ -50,8 +50,9 @@ async def auth_headers() -> dict:
     El token expira en 60 minutos (configuración por defecto).
     """
     token = create_access_token(
-        data={"sub": "Admin Principal"},
-        expires_delta=None,  # usa el default del settings
+        1,
+        "admin@sgah.com",
+        "ADMIN",
     )
     return {"Authorization": f"Bearer {token}"}
 
