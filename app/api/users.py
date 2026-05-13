@@ -163,4 +163,3 @@ async def activate_user(
 
     user = await UserService.activate_user(db, user_id)
     return user
-

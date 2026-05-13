@@ -18,7 +18,6 @@ from httpx import ASGITransport, AsyncClient
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.main import app
-from app.core.config import settings
 from app.core.security import create_access_token
 
 
@@ -49,10 +48,7 @@ async def auth_headers() -> dict:
     Genera headers de autenticación con un token JWT válido.
     El token expira en 60 minutos (configuración por defecto).
     """
-    token = create_access_token(
-        data={"sub": "Admin Principal"},
-        expires_delta=None,  # usa el default del settings
-    )
+    token = create_access_token("Admin Principal")
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -90,4 +86,4 @@ def sample_user_data() -> dict:
 @pytest.fixture
 def sample_zona_data() -> dict:
     """Datos de ejemplo para crear una zona."""
-    return {"nombre": "Zona Test"}
+    return {"nombre": "Zona Test", "nivel_riesgo": "medio"}

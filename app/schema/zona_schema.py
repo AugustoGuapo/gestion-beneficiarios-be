@@ -1,9 +1,19 @@
+from enum import Enum
+
 from pydantic import BaseModel
+
+
+class NivelRiesgoTipo(str, Enum):
+    bajo = "bajo"
+    medio = "medio"
+    alto = "alto"
+    critico = "crítico"
 
 
 class ZonaResponse(BaseModel):
     id_zona: int
     nombre: str
+    nivel_riesgo: NivelRiesgoTipo
 
     class Config:
         from_attributes = True
@@ -11,3 +21,4 @@ class ZonaResponse(BaseModel):
 
 class ZonaCreate(BaseModel):
     nombre: str
+    nivel_riesgo: NivelRiesgoTipo
