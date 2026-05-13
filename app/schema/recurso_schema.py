@@ -4,9 +4,8 @@ from pydantic import BaseModel
 class RecursoResponse(BaseModel):
     id_recurso: int
     nombre: str
-    categoria: str
-    unidad: str
-    peso_unitario: float
+    peso_unitario_kg: float
+    id_origen: int | None = None
 
     class Config:
         from_attributes = True
@@ -14,6 +13,5 @@ class RecursoResponse(BaseModel):
 
 class RecursoCreate(BaseModel):
     nombre: str
-    categoria: str
-    unidad: str
-    peso_unitario: float
+    peso_unitario_kg: float
+    id_origen: int | None = None
