@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from app.infrastructure.db.session import get_db
 from app.domain.models.configuracion_puntaje import ConfiguracionPuntaje
 from app.domain.models.familia import Familia
-from app.core.security import get_current_user
+from app.core.security import get_current_user, check_role
+from app.core.constants import UserRole
 from app.schema.configuracion_puntaje_schema import (
     ConfiguracionPuntajeResponse,
     ConfiguracionPuntajeUpdate,
@@ -18,9 +19,13 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 @router.get("/", response_model=list[ConfiguracionPuntajeResponse])
 async def get_configuraciones(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+    current_user: dict = Depends(check_role([
+        UserRole.ADMIN,
+        UserRole.COORDINADOR_LOGISTICA,
+        UserRole.FUNCIONARIO_CONTROL,
+    ])),
+    db: Session = Depends(get_db),
 ):
-    get_current_user(token)
     result = await db.execute(select(ConfiguracionPuntaje))
     configs = result.scalars().all()
     return configs
@@ -30,11 +35,12 @@ async def get_configuraciones(
 async def update_configuracion(
     clave: str,
     update: ConfiguracionPuntajeUpdate,
-    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(check_role([
+        UserRole.ADMIN,
+        UserRole.COORDINADOR_LOGISTICA,
+    ])),
     db: Session = Depends(get_db),
 ):
-    get_current_user(token)
-
     result = await db.execute(
         select(ConfiguracionPuntaje).where(ConfiguracionPuntaje.clave == clave)
     )
@@ -55,12 +61,15 @@ async def update_configuracion(
 @router.post("/familias/{familia_id}/calcular-puntaje")
 async def calcular_puntaje(
     familia_id: int,
-    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(check_role([
+        UserRole.ADMIN,
+        UserRole.CENSADOR,
+        UserRole.COORDINADOR_LOGISTICA,
+        UserRole.FUNCIONARIO_CONTROL,
+    ])),
     db: Session = Depends(get_db),
 ):
     """Calcula y guarda el puntaje de prioridad para una familia."""
-    get_current_user(token)
-
     result = await db.execute(
         select(Familia).where(Familia.id_familia == familia_id)
     )

@@ -15,6 +15,20 @@ class PersonaCreate(BaseModel):
     es_cabeza_familia: bool = False
 
 
+class PersonaUpdate(BaseModel):
+    id_familia: int | None = None
+    nombre: str | None = None
+    edad: int | None = None
+    es_nino: bool | None = None
+    es_anciano: bool | None = None
+    es_embarazada: bool | None = None
+    tipo_documento: str | None = None
+    numero_documento: str | None = None
+    tiene_discapacidad: bool | None = None
+    tiene_enfermedad_cronica: bool | None = None
+    es_cabeza_familia: bool | None = None
+
+
 class PersonaResponse(BaseModel):
     id_persona: int
     id_familia: int | None

@@ -4,8 +4,11 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from app.infrastructure.db.session import get_db
 from app.domain.models.familia import Familia
-from app.core.security import get_current_user
+from app.domain.models.persona import Persona
+from app.core.security import get_current_user, check_role
+from app.core.constants import UserRole
 from app.schema.familia_schema import FamiliaCreate, FamiliaResponse
+from app.application.services.puntaje_service import recalcular_puntaje_familia
 from datetime import datetime
 
 router = APIRouter(prefix="/familias", tags=["familias"])
@@ -23,9 +26,14 @@ async def generar_codigo_familia(db: Session) -> str:
 
 @router.get("/", response_model=list[FamiliaResponse])
 async def get_familias(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+    current_user: dict = Depends(check_role([
+        UserRole.ADMIN,
+        UserRole.CENSADOR,
+        UserRole.COORDINADOR_LOGISTICA,
+        UserRole.FUNCIONARIO_CONTROL,
+    ])),
+    db: Session = Depends(get_db),
 ):
-    get_current_user(token)
     result = await db.execute(select(Familia).order_by(Familia.fecha_registro.desc()))
     familias = result.scalars().all()
     return familias
@@ -34,10 +42,14 @@ async def get_familias(
 @router.get("/{familia_id}", response_model=FamiliaResponse)
 async def get_familia(
     familia_id: int,
-    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(check_role([
+        UserRole.ADMIN,
+        UserRole.CENSADOR,
+        UserRole.COORDINADOR_LOGISTICA,
+        UserRole.FUNCIONARIO_CONTROL,
+    ])),
     db: Session = Depends(get_db),
 ):
-    get_current_user(token)
     result = await db.execute(
         select(Familia).where(Familia.id_familia == familia_id)
     )
@@ -52,11 +64,12 @@ async def get_familia(
 @router.post("/", response_model=FamiliaResponse, status_code=status.HTTP_201_CREATED)
 async def create_familia(
     familia: FamiliaCreate,
-    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(check_role([
+        UserRole.ADMIN,
+        UserRole.CENSADOR,
+    ])),
     db: Session = Depends(get_db),
 ):
-    get_current_user(token)
-
     if not familia.acepta_privacidad:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -73,4 +86,14 @@ async def create_familia(
     db.add(new_familia)
     await db.commit()
     await db.refresh(new_familia)
+
+    # Recalcular puntaje si la familia tiene personas vinculadas
+    result = await db.execute(
+        select(Persona).where(Persona.id_familia == new_familia.id_familia)
+    )
+    personas = result.scalars().all()
+    if personas:
+        await recalcular_puntaje_familia(db, new_familia.id_familia)
+        await db.refresh(new_familia)
+
     return new_familia

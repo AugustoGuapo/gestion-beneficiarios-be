@@ -4,7 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.infrastructure.db.session import get_db
 from app.domain.models.plan_distribucion import PlanDistribucion, DetallePlanDistribucion
-from app.core.security import get_current_user
+from app.core.security import get_current_user, check_role
+from app.core.constants import UserRole
 from app.schema.plan_distribucion_schema import (
     PlanDistribucionResponse,
     PlanDistribucionDetailResponse,
@@ -18,9 +19,14 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 @router.get("/", response_model=list[PlanDistribucionResponse])
 async def get_planes(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+    current_user: dict = Depends(check_role([
+        UserRole.ADMIN,
+        UserRole.COORDINADOR_LOGISTICA,
+        UserRole.FUNCIONARIO_CONTROL,
+        UserRole.OPERADOR_ENTREGAS,
+    ])),
+    db: Session = Depends(get_db),
 ):
-    get_current_user(token)
     result = await db.execute(
         select(PlanDistribucion).order_by(PlanDistribucion.fecha_generacion.desc())
     )
@@ -31,11 +37,14 @@ async def get_planes(
 @router.get("/{plan_id}", response_model=PlanDistribucionDetailResponse)
 async def get_plan(
     plan_id: int,
-    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(check_role([
+        UserRole.ADMIN,
+        UserRole.COORDINADOR_LOGISTICA,
+        UserRole.FUNCIONARIO_CONTROL,
+        UserRole.OPERADOR_ENTREGAS,
+    ])),
     db: Session = Depends(get_db),
 ):
-    get_current_user(token)
-
     result = await db.execute(
         select(PlanDistribucion).where(PlanDistribucion.id_plan == plan_id)
     )
@@ -65,10 +74,12 @@ async def get_plan(
 
 @router.post("/generar")
 async def generar_nuevo_plan(
-    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(check_role([
+        UserRole.ADMIN,
+        UserRole.COORDINADOR_LOGISTICA,
+    ])),
     db: Session = Depends(get_db),
 ):
     """Genera un nuevo plan de distribución priorizado."""
-    get_current_user(token)
     resultado = await generar_plan(db)
     return resultado
