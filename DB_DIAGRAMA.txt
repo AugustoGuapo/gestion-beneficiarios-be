@@ -1,0 +1,115 @@
+DIAGRAMA DE TABLAS (resumen)
+=================================
+
+Entidades principales (columnas y tipos SQL sugeridos):
+
+- origen_recurso
+  - id_origen SERIAL PRIMARY KEY
+  - nombre VARCHAR(100) NOT NULL
+  - tipo VARCHAR(50)
+
+- recurso
+  - id_recurso SERIAL PRIMARY KEY
+  - nombre VARCHAR(100) NOT NULL
+  - peso_unitario_kg DECIMAL(10,2) NOT NULL
+  - id_origen INTEGER REFERENCES origen_recurso(id_origen) ON DELETE RESTRICT
+
+- inventario
+  - id_inventario SERIAL PRIMARY KEY
+  - recurso_id INTEGER NOT NULL REFERENCES recurso(id_recurso) ON DELETE RESTRICT
+  - cantidad DOUBLE PRECISION NOT NULL DEFAULT 0
+  - CONSTRAINT inventario_unq_recurso UNIQUE (recurso_id)
+  - INDEX idx_inventario_recurso (recurso_id)
+
+- donacion
+  - id_donacion SERIAL PRIMARY KEY
+  - codigo VARCHAR(50) UNIQUE -- Ej: DON-AAAA-00001
+  - referencia VARCHAR(255)
+  - fecha TIMESTAMP WITH TIME ZONE DEFAULT now()
+
+- donacion_recurso
+  - id SERIAL PRIMARY KEY
+  - donacion_id INTEGER NOT NULL REFERENCES donacion(id_donacion) ON DELETE CASCADE
+  - recurso_id INTEGER NOT NULL REFERENCES recurso(id_recurso) ON DELETE RESTRICT
+  - cantidad DOUBLE PRECISION NOT NULL
+  - INDEX idx_donrec_donacion (donacion_id)
+  - INDEX idx_donrec_recurso (recurso_id)
+
+Entidades existentes (resumen):
+
+- persona
+  - id_persona INTEGER PK
+  - nombre, edad, flags
+
+- usuario
+  - id_usuario INTEGER PK
+  - nombre, rol
+
+- zona
+  - id_zona INTEGER PK
+  - nombre
+
+Relaciones y comportamiento esperado:
+
+- `recurso` es el catálogo maestro de tipos de recurso y se apoya en `origen_recurso` para su procedencia.
+- `inventario` mantiene la cantidad actual por `recurso`. Puede iniciarse en paralelo (mínimo cero) y se incrementa automáticamente cuando llega una `donacion`.
+- `donacion` registra una entrega; su detalle está en `donacion_recurso` (líneas con `recurso_id` y `cantidad`).
+- Al registrar una `donacion`:
+  1) Se genera `codigo` con formato `DON-AAAA-NNNNN` (secuencial y dinámico por año).
+  2) Validar capacidad de bodega (si aplica) antes de aceptar — la validación debe comparar la suma de pesos entrantes contra la capacidad disponible.
+    - total_peso_entrada = SUM(cantidad * peso_unitario_kg) sobre las líneas de `donacion_recurso`.
+  3) Si pasa validación, en una transacción atómica: crear `donacion`, crear `donacion_recurso` y actualizar/incrementar `inventario` (INSERT ON CONFLICT -> UPDATE o SELECT+UPDATE).
+
+Notas de diseño y constraints útiles:
+
+- Usar `inventario.recurso_id` único para asegurar una sola fila de inventario por recurso.
+- Calcular impacto en capacidad usando `peso_unitario_kg`: peso_total = SUM(cantidad * peso_unitario_kg).
+- `donacion.codigo` único y generado secuencialmente (puede usarse una tabla de secuencias o construir a partir de `id_donacion`).
+- Manejar la operación de registro de donación dentro de una transacción para evitar inconsistencias si hay fallo en la validación o actualización.
+
+Ejemplo CREATE TABLE (Postgres, abreviado):
+
+CREATE TABLE origen_recurso (
+  id_origen SERIAL PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL,
+  tipo VARCHAR(50)
+);
+
+CREATE TABLE recurso (
+  id_recurso SERIAL PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL,
+  peso_unitario_kg DECIMAL(10,2) NOT NULL,
+  id_origen INTEGER REFERENCES origen_recurso(id_origen)
+);
+
+CREATE TABLE inventario (
+  id_inventario SERIAL PRIMARY KEY,
+  recurso_id INTEGER NOT NULL UNIQUE REFERENCES recurso(id_recurso),
+  cantidad DOUBLE PRECISION NOT NULL DEFAULT 0,
+  UNIQUE (recurso_id)
+);
+
+CREATE TABLE donacion (
+  id_donacion SERIAL PRIMARY KEY,
+  codigo VARCHAR(50) UNIQUE,
+  referencia VARCHAR(255),
+  fecha TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE TABLE donacion_recurso (
+  id SERIAL PRIMARY KEY,
+  donacion_id INTEGER NOT NULL REFERENCES donacion(id_donacion) ON DELETE CASCADE,
+  recurso_id INTEGER NOT NULL REFERENCES recurso(id_recurso) ON DELETE RESTRICT,
+  cantidad DOUBLE PRECISION NOT NULL
+);
+
+Futuras extensiones sugeridas:
+- tabla `bodega` con `capacidad_max_kg` y relacionar `inventario` por `bodega` (inventario por bodega).
+- tabla `movimiento` o `auditoria_movimientos` para registrar entradas/salidas con usuario, tipo, y referencia.
+
+Resumen ER (texto):
+
+recurso (1) <-- (1) inventario
+recurso (1) <-- (N) donacion_recurso --> (N) donacion (1)
+
+Fin del diagrama.

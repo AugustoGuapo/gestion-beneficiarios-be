@@ -385,12 +385,64 @@ INSERT INTO detalle_entrega (
 (8, 3, 2),
 (8, 9, 1);
 
--- USUARIOS
+-- ==========================================
+-- TABLA USUARIO (REFACTORIZADO - Sin redundancia)
+-- ==========================================
+-- Reemplazar tabla usuario anterior si existe
+DROP TABLE IF EXISTS usuario CASCADE;
+
+CREATE TABLE usuario (
+    id_usuario INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre_completo VARCHAR(255) NOT NULL,
+    correo VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    rol VARCHAR(50) NOT NULL DEFAULT 'REGISTRADOR_DONACIONES',
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CHECK (rol IN ('ADMIN', 'CENSADOR', 'OPERADOR_ENTREGAS', 'COORDINADOR_LOGISTICA', 'FUNCIONARIO_CONTROL', 'REGISTRADOR_DONACIONES'))
+);
+
+-- Crear índices
+CREATE INDEX idx_usuario_correo ON usuario(correo);
+CREATE INDEX idx_usuario_activo ON usuario(activo);
+CREATE INDEX idx_usuario_rol ON usuario(rol);
+
+-- USUARIOS DE PRUEBA
+-- Contraseña: Admin123 (hasheada con bcrypt)
 INSERT INTO usuario (
-    nombre,
-    rol
+    nombre_completo,
+    correo,
+    password_hash,
+    rol,
+    activo
 ) VALUES
-('Admin Principal', 'ADMIN'),
-('ONG Cruz Roja', 'ONG'),
-('Voluntario Juan', 'VOLUNTARIO'),
-('Voluntario Ana', 'VOLUNTARIO');
+(
+    'Administrador Sistema',
+    'admin@sgah.com',
+    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5YmMxSUmGEJiq',
+    'ADMIN',
+    TRUE
+),
+(
+    'Coordinador Logística',
+    'coordinador@sgah.com',
+    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5YmMxSUmGEJiq',
+    'COORDINADOR_LOGISTICA',
+    TRUE
+),
+(
+    'Operador de Entregas',
+    'operador@sgah.com',
+    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5YmMxSUmGEJiq',
+    'OPERADOR_ENTREGAS',
+    TRUE
+),
+(
+    'Registrador de Donaciones',
+    'registrador@sgah.com',
+    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5YmMxSUmGEJiq',
+    'REGISTRADOR_DONACIONES',
+    TRUE
+);
