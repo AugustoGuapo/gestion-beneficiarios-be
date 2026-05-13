@@ -230,7 +230,7 @@ Headers: Authorization: Bearer {token}
 3. **Email**: Único a nivel BD. Validación en API con EmailStr
 4. **Desactivación**: Lógica, no física. Los datos se preservan.
 5. **Timestamps**: Se actualizan automáticamente
-6. **Índices**: En correo, estado y rol para performance
+6. **Índices**: En correo, activo y rol para performance
 7. **Status Code**: Respeta estándares HTTP (201, 204, 400, 401, 403, 404)
 
 ---

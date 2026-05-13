@@ -48,21 +48,37 @@ async def login(
 
 
 @router.post("/refresh-token", response_model=UserLoginResponse, summary="Refrescar token")
-async def refresh_token(current_user: dict = Depends(get_current_user)):
+async def refresh_token(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     """
     Refrescar el token JWT para extender la sesión.
 
+    Retorna un nuevo token y los datos del usuario autenticado.
+
     Nota: Este endpoint requiere un token válido en el header.
     """
+    # Obtener datos completos del usuario desde DB
+    user = await UserService.get_user_by_id(db, current_user["user_id"])
+
+    # Crear nuevo token JWT
     access_token = create_access_token(
-        current_user["user_id"],
-        current_user["email"],
-        current_user["rol"]
+        user.id_usuario,
+        user.correo,
+        user.rol
     )
 
+    # Devolver respuesta estandarizada igual a /login
     return UserLoginResponse(
         access_token=access_token,
         token_type="bearer",
-        usuario=current_user
+        usuario={
+            "id_usuario": user.id_usuario,
+            "nombre_completo": user.nombre_completo,
+            "correo": user.correo,
+            "rol": user.rol,
+            "activo": user.activo
+        }
     )
 

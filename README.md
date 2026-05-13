@@ -105,6 +105,16 @@ La API estará disponible en `http://localhost:8000`
 curl http://localhost:8000/docs
 ```
 
+## Documentación interactiva y colección Postman
+
+La API expone documentación OpenAPI/Swagger automáticamente en `/docs` y `/redoc`.
+
+- Uso recomendado: primero explorar y probar endpoints en **Swagger UI** (`/docs`).
+- Si necesitas compartir o ejecutar escenarios de prueba, importa la colección Postman incluida: `SGAH_Collection.postman_collection.json`.
+
+La colección ya contiene scripts para guardar el token y variables de entorno.
+
+
 ## Variables de Entorno
 
 | Variable | Descripción | Default |

@@ -1,6 +1,5 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-#from sqlalchemy.orm import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 from app.domain.models.user import User
@@ -39,11 +38,30 @@ class UserService:
             await db.refresh(new_user)
             return new_user
 
-        except IntegrityError:
+        except IntegrityError as e:
             await db.rollback()
+            # Intentar identificar si la violación corresponde a una restricción UNIQUE
+            # sobre el campo `correo`. Dependiendo del driver (psycopg2/asyncpg)
+            # la información puede estar en diferentes atributos.
+            msg = "Violación de integridad en la base de datos"
+            try:
+                orig = getattr(e, 'orig', None)
+                orig_msg = str(orig) if orig is not None else str(e)
+            except Exception:
+                orig_msg = str(e)
+
+            lower_msg = orig_msg.lower()
+            if 'unique' in lower_msg or 'duplicate' in lower_msg or 'violat' in lower_msg:
+                # Si el mensaje menciona el correo explícitamente, devolver mensaje específico
+                if 'correo' in lower_msg or 'usuario_correo' in lower_msg or 'email' in lower_msg:
+                    msg = 'El correo ya está registrado'
+                else:
+                    # Mensaje seguro y no revelador cuando no podemos identificar el constraint
+                    msg = 'Datos duplicados o inválidos'
+
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El correo ya está registrado"
+                detail=msg
             )
 
     @staticmethod
@@ -145,6 +163,19 @@ class UserService:
         return user
 
     @staticmethod
-    async def verify_role_access(user_role: str, required_roles: list[str]) -> bool:
-        """Verifica si un rol tiene acceso."""
+    def verify_role_access(user_role: str, required_roles: list[str]) -> bool:
+        """
+        Verifica si un rol tiene acceso a una funcionalidad específica.
+        
+        Args:
+            user_role: Rol del usuario actual
+            required_roles: Lista de roles permitidos
+            
+        Returns:
+            True si el usuario tiene acceso, False en caso contrario
+            
+        Ejemplo:
+            if UserService.verify_role_access(user_role, [UserRole.ADMIN.value]):
+                # Procesar operación
+        """
         return user_role in required_roles

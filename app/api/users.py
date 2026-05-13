@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-#from sqlalchemy.orm import AsyncSession
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.db.session import get_db
-from app.core.security import get_current_user, check_role, oauth2_scheme
+from app.core.security import get_current_user
 from app.core.constants import UserRole
 from app.application.services.user_service import UserService
 from app.schema.user_schema import (
@@ -59,8 +58,28 @@ async def get_user(
     """
     Obtener los detalles de un usuario específico.
 
-    **Permisos:** Requiere estar autenticado
+    **Lógica de autorización (mínimo privilegio):**
+    - ✅ ADMIN: Puede consultar cualquier usuario
+    - ✅ COORDINADOR_LOGISTICA: Puede consultar cualquier usuario (es rol administrativo)
+    - ❌ Otros roles: Solo pueden consultar su propia información
+
+    **Permisos:**
+    - Debe estar autenticado
+    - Acceso restringido por rol y propiedad de datos
     """
+    # Roles que tienen permiso para consultar cualquier usuario
+    admin_roles = [
+        UserRole.ADMIN.value,
+        UserRole.COORDINADOR_LOGISTICA.value
+    ]
+
+    # Verificar autorización: solo ADMIN/COORDINADOR pueden ver otros usuarios
+    if current_user["rol"] not in admin_roles and current_user["user_id"] != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permisos para consultar información de otros usuarios"
+        )
+
     user = await UserService.get_user_by_id(db, user_id)
     return user
 
