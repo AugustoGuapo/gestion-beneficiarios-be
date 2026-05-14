@@ -8,6 +8,8 @@ y que el schema inicial (scripts/init.sql) ya fue aplicado.
 import pytest
 from httpx import AsyncClient
 
+from app.core.constants import UserRole
+from app.core.security import create_access_token
 
 # =============================================================================
 # Auth
@@ -22,7 +24,7 @@ class TestAuth:
         """Debe retornar token para credenciales válidas."""
         response = await client.post(
             "/auth/login",
-            json={"username": "Admin Principal", "password": "password"},
+            json={"correo": "admin@sgah.com", "password": "Admin123"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -33,7 +35,7 @@ class TestAuth:
         """Debe retornar 401 para credenciales inválidas."""
         response = await client.post(
             "/auth/login",
-            json={"username": "usuario_inexistente", "password": "wrong"},
+            json={"correo": "noexiste@sgah.com", "password": "Admin123"},
         )
         assert response.status_code == 401
 
@@ -139,6 +141,63 @@ class TestZonas:
 
 
 # =============================================================================
+# Inventario (HU-15)
+# =============================================================================
+
+
+@pytest.mark.integration
+class TestInventario:
+    """Stock por bodega desde movimiento_inventario."""
+
+    async def test_inventario_sin_filtro(self, client_auth: AsyncClient):
+        response = await client_auth.get("/inventario/")
+        assert response.status_code == 200
+        data = response.json()
+        assert "bodegas" in data and "consolidado" in data
+        assert len(data["bodegas"]) >= 2
+        b1 = next(b for b in data["bodegas"] if b["id_bodega"] == 1)
+        arroz = next(l for l in b1["lineas"] if l["id_recurso"] == 1)
+        assert arroz["cantidad_disponible"] == 450
+        cons_arroz = next(c for c in data["consolidado"] if c["id_recurso"] == 1)
+        assert cons_arroz["cantidad_total"] == 450
+
+    async def test_inventario_filtrado_por_bodega(self, client_auth: AsyncClient):
+        response = await client_auth.get("/inventario/", params={"id_bodega": 2})
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["bodegas"]) == 1
+        assert data["bodegas"][0]["id_bodega"] == 2
+        ids_recursos = {l["id_recurso"] for l in data["bodegas"][0]["lineas"]}
+        assert ids_recursos == {6, 8}
+        agua = next(l for l in data["bodegas"][0]["lineas"] if l["id_recurso"] == 6)
+        assert agua["cantidad_disponible"] == 600
+
+    async def test_inventario_bodega_inexistente(self, client_auth: AsyncClient):
+        response = await client_auth.get("/inventario/", params={"id_bodega": 99999})
+        assert response.status_code == 404
+
+    async def test_inventario_sin_token(self, client: AsyncClient):
+        response = await client.get("/inventario/")
+        assert response.status_code == 401
+
+    async def test_inventario_rol_no_autorizado(self, client: AsyncClient):
+        token = create_access_token(1, "censador@test.com", UserRole.CENSADOR.value)
+        response = await client.get(
+            "/inventario/",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 403
+
+    async def test_inventario_operador_entregas(self, client: AsyncClient):
+        token = create_access_token(2, "op@test.com", UserRole.OPERADOR_ENTREGAS.value)
+        response = await client.get(
+            "/inventario/",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+
+
+# =============================================================================
 # Usuarios
 # =============================================================================
 
@@ -159,4 +218,4 @@ class TestUsuarios:
         response = await client_auth.get("/users/1")
         assert response.status_code == 200
         data = response.json()
-        assert "nombre" in data
+        assert "nombre_completo" in data

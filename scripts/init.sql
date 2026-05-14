@@ -52,39 +52,18 @@ CREATE TABLE ubicacion (
 );
 
 -- =========================
--- TABLA ALBERGUE
+-- TABLA FAMILIA_REFUGIO
 -- =========================
-CREATE TABLE albergue (
-    id_albergue INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    capacidad INT,
-    id_ubicacion INT,
-
-    CONSTRAINT fk_ubicacion_albergue
-    FOREIGN KEY (id_ubicacion)
-    REFERENCES ubicacion(id_ubicacion)
-    ON DELETE SET NULL
-    ON UPDATE CASCADE
-);
-
--- =========================
--- TABLA FAMILIA_ALBERGUE
--- =========================
-CREATE TABLE familia_albergue (
+CREATE TABLE IF NOT EXISTS familia_refugio (
     id_familia INT,
-    id_albergue INT,
+    id_refugio INT,
     fecha_ingreso DATE,
 
-    PRIMARY KEY (id_familia, id_albergue),
+    PRIMARY KEY (id_familia, id_refugio),
 
-    CONSTRAINT fk_fa_familia
+    CONSTRAINT fk_fr_familia
     FOREIGN KEY (id_familia)
     REFERENCES familia(id_familia)
-    ON DELETE CASCADE,
-
-    CONSTRAINT fk_fa_albergue
-    FOREIGN KEY (id_albergue)
-    REFERENCES albergue(id_albergue)
     ON DELETE CASCADE
 );
 
@@ -118,15 +97,55 @@ CREATE TABLE recurso (
 );
 
 -- =========================
--- TABLA BODEGA
+-- TABLA BODEGA (Adaptada para HU-11)
 -- =========================
 CREATE TABLE bodega (
     id_bodega INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    nombre VARCHAR(100),
-    capacidad_max_kg DECIMAL(10,2),
-
-    CHECK (capacidad_max_kg <= 20000)
+    nombre VARCHAR(100) NOT NULL,
+    latitud DECIMAL(10, 8) NOT NULL DEFAULT 8.75000000,
+    longitud DECIMAL(11, 8) NOT NULL DEFAULT -75.88000000,
+    capacidad_max_kg DECIMAL(10, 2) NOT NULL DEFAULT 20000.00,
+    peso_actual_kg DECIMAL(10, 2) DEFAULT 0 CHECK (peso_actual_kg >= 0),
+    zona_id INTEGER NOT NULL REFERENCES zona(id_zona) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CHECK (capacidad_max_kg > 0)
 );
+
+-- Ajuste seguro para bases ya existentes
+ALTER TABLE IF EXISTS bodega
+    ADD COLUMN IF NOT EXISTS latitud DECIMAL(10, 8) NOT NULL DEFAULT 8.75000000,
+    ADD COLUMN IF NOT EXISTS longitud DECIMAL(11, 8) NOT NULL DEFAULT -75.88000000,
+    ADD COLUMN IF NOT EXISTS capacidad_max_kg DECIMAL(10, 2) NOT NULL DEFAULT 20000.00,
+    ADD COLUMN IF NOT EXISTS peso_actual_kg DECIMAL(10, 2) DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS zona_id INTEGER;
+
+UPDATE bodega
+SET zona_id = COALESCE(zona_id, 1)
+WHERE zona_id IS NULL;
+
+ALTER TABLE IF EXISTS bodega
+    ALTER COLUMN zona_id SET NOT NULL;
+
+ALTER TABLE IF EXISTS bodega
+    DROP COLUMN IF EXISTS fecha_registro;
+
+CREATE INDEX IF NOT EXISTS idx_bodega_zona ON bodega(zona_id);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.table_constraints
+        WHERE table_name = 'bodega'
+          AND constraint_name = 'fk_bodega_zona'
+    ) THEN
+        ALTER TABLE bodega
+            ADD CONSTRAINT fk_bodega_zona
+            FOREIGN KEY (zona_id)
+            REFERENCES zona(id_zona)
+            ON DELETE RESTRICT
+            ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- =========================
 -- TABLA MOVIMIENTO_INVENTARIO
@@ -208,6 +227,21 @@ CREATE TABLE usuario (
     CHECK (rol IN ('ADMIN', 'ONG', 'VOLUNTARIO'))
 );
 
+-- =========================
+-- TABLA AUDIT_LOG
+-- =========================
+CREATE TABLE IF NOT EXISTS audit_log (
+    id_audit_log INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    username VARCHAR(255),
+    method VARCHAR(20) NOT NULL,
+    endpoint VARCHAR(255) NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    status_code INTEGER NOT NULL,
+    ip_address VARCHAR(100),
+    payload JSON,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ==========================================
 -- INSERCIÓN DE DATOS DE PRUEBA
 -- ==========================================
@@ -230,11 +264,8 @@ INSERT INTO ubicacion (direccion, id_zona) VALUES
 ('Calle 22 # 7-40', 1),
 ('Barrio El Carmen', 2);
 
--- ALBERGUES
-INSERT INTO albergue (nombre, capacidad, id_ubicacion) VALUES
-('Albergue Coliseo Norte', 200, 1),
-('Albergue Escuela Sur',   150, 2),
-('Albergue Centro Vida',   100, 3);
+-- REFUGIOS
+-- (se insertan al final, luego de crear la tabla refugios)
 
 -- PERSONAS
 INSERT INTO persona (
@@ -266,10 +297,10 @@ INSERT INTO familia (id_representante) VALUES
 (9),
 (11);
 
--- ASIGNACIÓN A ALBERGUES
-INSERT INTO familia_albergue (
+-- ASIGNACIÓN A REFUGIOS
+INSERT INTO familia_refugio (
     id_familia,
-    id_albergue,
+    id_refugio,
     fecha_ingreso
 ) VALUES
 (1, 1, '2025-01-10'),
@@ -305,10 +336,11 @@ INSERT INTO recurso (
 -- BODEGAS
 INSERT INTO bodega (
     nombre,
-    capacidad_max_kg
+    capacidad_max_kg,
+    zona_id
 ) VALUES
-('Bodega Central Montería', 20000),
-('Bodega Auxiliar Norte',   8000);
+('Bodega Central Montería', 20000, 1),
+('Bodega Auxiliar Norte',   8000, 2);
 
 -- MOVIMIENTOS INVENTARIO
 INSERT INTO movimiento_inventario (
@@ -449,3 +481,42 @@ INSERT INTO usuario (
     'REGISTRADOR_DONACIONES',
     TRUE
 );
+-- =========================
+-- TABLA REFUGIOS (HU-10)
+-- =========================
+CREATE TABLE IF NOT EXISTS refugios (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    ubicacion_textual TEXT,
+    latitud DECIMAL(10, 8) NOT NULL,
+    longitud DECIMAL(11, 8) NOT NULL,
+    capacidad_maxima_personas INTEGER NOT NULL CHECK (capacidad_maxima_personas > 0),
+    ocupacion_actual INTEGER DEFAULT 0 CHECK (ocupacion_actual >= 0),
+    zona_id INTEGER REFERENCES zona(id_zona) ON DELETE SET NULL ON UPDATE CASCADE,
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Crear índice si no existe
+CREATE INDEX IF NOT EXISTS idx_refugios_zona ON refugios(zona_id);
+
+INSERT INTO refugios (id, nombre, ubicacion_textual, latitud, longitud, capacidad_maxima_personas, ocupacion_actual, zona_id)
+VALUES
+    (1, 'Refugio Coliseo Norte', 'Calle 10 # 5-20', 8.75000000, -75.88000000, 200, 120, 1),
+    (2, 'Refugio Escuela Sur', 'Carrera 3 # 8-15', 8.74000000, -75.89000000, 150, 90, 2),
+    (3, 'Refugio Centro Vida', 'Avenida Central # 1-01', 8.76000000, -75.87000000, 100, 40, 3)
+ON CONFLICT (id) DO NOTHING;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fk_fr_refugio'
+    ) THEN
+        ALTER TABLE familia_refugio
+            ADD CONSTRAINT fk_fr_refugio
+            FOREIGN KEY (id_refugio)
+            REFERENCES refugios(id)
+            ON DELETE CASCADE;
+    END IF;
+END $$;

@@ -180,6 +180,35 @@ La colección ya contiene scripts para guardar el token y variables de entorno.
 | GET | `/zonas/{id}` | Obtener zona por ID | ✅ |
 | POST | `/zonas/` | Crear nueva zona | ✅ |
 
+### Recursos (HU-14)
+
+Catálogo base de tipos de recurso (inventario). Requiere autenticación y rol.
+
+| Método | Endpoint | Descripción | Auth | Roles permitidos |
+|--------|----------|-------------|------|------------------|
+| POST | `/recursos/` | Crear un tipo de recurso | ✅ | REGISTRADOR_DONACIONES, COORDINADOR_LOGISTICA |
+| GET | `/recursos/` | Listar tipos de recurso | ✅ | REGISTRADOR_DONACIONES, COORDINADOR_LOGISTICA |
+
+**Campos principales**: `nombre`, `categoria`, `unidad_medida`, `peso_unitario_kg`, `activo`, `id_origen` (opcional).
+
+**Enums**:
+- `categoria`: `ALIMENTOS`, `COBIJA`, `COLCHONETA`, `ASEO`, `MEDICAMENTO`
+- `unidad_medida`: `KG`, `UNIDAD`, `LITRO`
+
+**Regla de unicidad**: no se permiten dos recursos con la misma combinacion `nombre` + `categoria` (respuesta 409).
+
+### Inventario (HU-15)
+
+Consulta de stock por bodega a partir de `movimiento_inventario` (entradas menos salidas). Requiere autenticación y rol.
+
+| Método | Endpoint | Descripción | Auth | Roles permitidos |
+|--------|----------|-------------|------|------------------|
+| GET | `/inventario/` | Inventario por bodega y consolidado | ✅ | ADMIN, COORDINADOR_LOGISTICA, OPERADOR_ENTREGAS |
+
+**Query opcional**: `id_bodega` (entero) — filtra el detalle a una bodega; sin parámetro se listan todas las bodegas con sus líneas y un `consolidado` global.
+
+**Respuesta**: objeto con `bodegas` (cada una con `lineas`: recurso + `cantidad_disponible`) y `consolidado` (totales por recurso en el alcance de la consulta). Solo se incluyen líneas con saldo mayor que cero.
+
 ## Uso de la API
 
 ### 1. Obtener token
@@ -221,8 +250,8 @@ El esquema se encuentra en `scripts/init.sql` e incluye las siguientes tablas **
 - **familia**: Grupos familiares
 - **zona**: Zonas geográficas
 - **ubicacion**: Direcciones
-- **albergue**: Centros de alojamiento
-- **familia_albergue**: Asignación familia-albergue
+- **refugios**: Centros de refugio temporal
+- **familia_refugio**: Asignación familia-refugio
 - **origen_recurso**: Fuentes de ayudas
 - **recurso**: Tipos de ayudas
 - **bodega**: Centros de almacenamiento

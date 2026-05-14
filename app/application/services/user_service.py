@@ -1,9 +1,10 @@
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
-from app.domain.models.user import User
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.security import hash_password, verify_password
+from app.domain.models.user import User
 from app.schema.user_schema import UserCreate, UserUpdate
 
 
@@ -15,13 +16,10 @@ class UserService:
         """Crea un nuevo usuario."""
         try:
             # Verificar si el email ya existe
-            result = await db.execute(
-                select(User).where(User.correo == user_create.correo)
-            )
+            result = await db.execute(select(User).where(User.correo == user_create.correo))
             if result.scalar_one_or_none():
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="El correo ya está registrado"
+                    status_code=status.HTTP_400_BAD_REQUEST, detail="El correo ya está registrado"
                 )
 
             # Crear usuario con contraseña hasheada
@@ -30,7 +28,7 @@ class UserService:
                 correo=user_create.correo,
                 password_hash=hash_password(user_create.password),
                 rol=user_create.rol.value,
-                activo=True
+                activo=True,
             )
 
             db.add(new_user)
@@ -45,54 +43,47 @@ class UserService:
             # la información puede estar en diferentes atributos.
             msg = "Violación de integridad en la base de datos"
             try:
-                orig = getattr(e, 'orig', None)
+                orig = getattr(e, "orig", None)
                 orig_msg = str(orig) if orig is not None else str(e)
             except Exception:
                 orig_msg = str(e)
 
             lower_msg = orig_msg.lower()
-            if 'unique' in lower_msg or 'duplicate' in lower_msg or 'violat' in lower_msg:
+            if "unique" in lower_msg or "duplicate" in lower_msg or "violat" in lower_msg:
                 # Si el mensaje menciona el correo explícitamente, devolver mensaje específico
-                if 'correo' in lower_msg or 'usuario_correo' in lower_msg or 'email' in lower_msg:
-                    msg = 'El correo ya está registrado'
+                if "correo" in lower_msg or "usuario_correo" in lower_msg or "email" in lower_msg:
+                    msg = "El correo ya está registrado"
                 else:
                     # Mensaje seguro y no revelador cuando no podemos identificar el constraint
-                    msg = 'Datos duplicados o inválidos'
+                    msg = "Datos duplicados o inválidos"
 
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=msg
-            )
+                detail=msg,
+            ) from e
 
     @staticmethod
     async def get_user_by_id(db: AsyncSession, user_id: int) -> User:
         """Obtiene un usuario por ID."""
-        result = await db.execute(
-            select(User).where(User.id_usuario == user_id)
-        )
+        result = await db.execute(select(User).where(User.id_usuario == user_id))
         user = result.scalar_one_or_none()
 
         if not user:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Usuario no encontrado"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado"
             )
         return user
 
     @staticmethod
     async def get_user_by_email(db: AsyncSession, email: str) -> User:
         """Obtiene un usuario por email."""
-        result = await db.execute(
-            select(User).where(User.correo == email)
-        )
+        result = await db.execute(select(User).where(User.correo == email))
         return result.scalar_one_or_none()
 
     @staticmethod
     async def get_all_users(db: AsyncSession, skip: int = 0, limit: int = 100) -> list[User]:
         """Obtiene todos los usuarios con paginación."""
-        result = await db.execute(
-            select(User).offset(skip).limit(limit)
-        )
+        result = await db.execute(select(User).offset(skip).limit(limit))
         return result.scalars().all()
 
     @staticmethod
@@ -142,24 +133,20 @@ class UserService:
 
         if not user:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Credenciales inválidas"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas"
             )
 
         # Verificar contraseña
         if not verify_password(password, user.password_hash):
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Credenciales inválidas"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas"
             )
 
         # Verificar que el usuario esté activo
         if not user.activo:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Usuario inactivo. Contacte al administrador"
+                detail="Usuario inactivo. Contacte al administrador",
             )
 
         return user
-
-    

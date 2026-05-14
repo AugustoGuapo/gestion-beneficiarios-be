@@ -28,7 +28,7 @@ _ROLES_ESCRITURA = [
 
 @router.post("/", response_model=FocoSanitarioResponse, status_code=status.HTTP_201_CREATED, summary="Registrar un foco de riesgo sanitario")
 async def crear_foco_sanitario(payload: FocoSanitarioCreate, current_user: dict = Depends(check_role(_ROLES_ESCRITURA)), db: AsyncSession = Depends(get_db)) -> FocoSanitarioResponse:
-    """HU-25 — Registra un nuevo foco de riesgo sanitario asociado a una zona o albergue."""
+    """HU-25 — Registra un nuevo foco de riesgo sanitario asociado a una zona o refugio."""
     return await FocoSanitarioService.crear_foco(db, payload)
 
 

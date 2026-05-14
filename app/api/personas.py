@@ -1,29 +1,40 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.infrastructure.db.session import get_db
-from app.domain.models.persona import Persona
-from app.domain.models.familia import Familia
-from app.core.security import get_current_user, check_role
-from app.core.constants import UserRole
-from app.schema.persona_schema import PersonaResponse, PersonaCreate, PersonaUpdate
+
 from app.application.services.puntaje_service import recalcular_puntaje_familia
+from app.application.services.puntaje_service import (
+    recalcular_puntaje_familia,
+)
+from app.core.constants import UserRole
+from app.core.security import check_role
+from app.domain.models.familia import Familia
+from app.domain.models.persona import Persona
+from app.infrastructure.db.session import get_db
+from app.schema.persona_schema import PersonaCreate, PersonaResponse, PersonaUpdate
+from app.schema.persona_schema import (
+    PersonaCreate,
+    PersonaResponse,
+    PersonaUpdate,
+)
 
 router = APIRouter(prefix="/personas", tags=["personas"])
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
 @router.get("/", response_model=list[PersonaResponse])
 async def get_personas(
-    current_user: dict = Depends(check_role([
-        UserRole.ADMIN,
-        UserRole.CENSADOR,
-        UserRole.COORDINADOR_LOGISTICA,
-        UserRole.FUNCIONARIO_CONTROL,
-    ])),
-    db: Session = Depends(get_db),
-    ):
+    current_user: dict = Depends(
+        check_role(
+            [
+                UserRole.ADMIN,
+                UserRole.CENSADOR,
+                UserRole.COORDINADOR_LOGISTICA,
+                UserRole.FUNCIONARIO_CONTROL,
+            ]
+        )
+    ),
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(select(Persona))
     personas = result.scalars().all()
     return personas
@@ -32,38 +43,40 @@ async def get_personas(
 @router.get("/{persona_id}", response_model=PersonaResponse)
 async def get_persona(
     persona_id: int,
-    current_user: dict = Depends(check_role([
-        UserRole.ADMIN,
-        UserRole.CENSADOR,
-        UserRole.COORDINADOR_LOGISTICA,
-        UserRole.FUNCIONARIO_CONTROL,
-    ])),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(
+        check_role(
+            [
+                UserRole.ADMIN,
+                UserRole.CENSADOR,
+                UserRole.COORDINADOR_LOGISTICA,
+                UserRole.FUNCIONARIO_CONTROL,
+            ]
+        )
+    ),
+    db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Persona).where(Persona.id_persona == persona_id)
-    )
+    result = await db.execute(select(Persona).where(Persona.id_persona == persona_id))
     persona = result.scalar_one_or_none()
     if not persona:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Persona no encontrada"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona no encontrada")
     return persona
 
 
 @router.post("/", response_model=PersonaResponse, status_code=status.HTTP_201_CREATED)
 async def create_persona(
     persona: PersonaCreate,
-    current_user: dict = Depends(check_role([
-        UserRole.ADMIN,
-        UserRole.CENSADOR,
-    ])),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(
+        check_role(
+            [
+                UserRole.ADMIN,
+                UserRole.CENSADOR,
+            ]
+        )
+    ),
+    db: AsyncSession = Depends(get_db),
 ):
     if persona.id_familia is not None:
-        result = await db.execute(
-            select(Familia).where(Familia.id_familia == persona.id_familia)
-        )
+        result = await db.execute(select(Familia).where(Familia.id_familia == persona.id_familia))
         familia = result.scalar_one_or_none()
         if not familia:
             raise HTTPException(
@@ -89,7 +102,7 @@ async def create_persona(
     await db.refresh(new_persona)
 
     if new_persona.id_familia is not None:
-        await recalcular_puntaje_familia(db, new_persona.id_familia)
+        await recalcular_puntaje_familia(db, cast(int, new_persona.id_familia))
 
     return new_persona
 
@@ -98,23 +111,23 @@ async def create_persona(
 async def update_persona(
     persona_id: int,
     persona_data: PersonaUpdate,
-    current_user: dict = Depends(check_role([
-        UserRole.ADMIN,
-        UserRole.CENSADOR,
-    ])),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(
+        check_role(
+            [
+                UserRole.ADMIN,
+                UserRole.CENSADOR,
+            ]
+        )
+    ),
+    db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Persona).where(Persona.id_persona == persona_id)
-    )
+    result = await db.execute(select(Persona).where(Persona.id_persona == persona_id))
     persona = result.scalar_one_or_none()
     if not persona:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Persona no encontrada"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona no encontrada")
 
     # Guardar id_familia anterior para recálculo si cambia de familia
-    familia_anterior = persona.id_familia
+    familia_anterior = cast(int | None, persona.id_familia)
 
     # Actualizar solo los campos enviados (no None)
     update_data = persona_data.model_dump(exclude_unset=True)
@@ -137,7 +150,7 @@ async def update_persona(
 
     # Recalcular puntaje de la familia nueva y la anterior (si cambiaron)
     if persona.id_familia is not None:
-        await recalcular_puntaje_familia(db, persona.id_familia)
+        await recalcular_puntaje_familia(db, cast(int, persona.id_familia))
     if familia_anterior is not None and familia_anterior != persona.id_familia:
         await recalcular_puntaje_familia(db, familia_anterior)
 
@@ -147,20 +160,20 @@ async def update_persona(
 @router.delete("/{persona_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_persona(
     persona_id: int,
-    current_user: dict = Depends(check_role([
-        UserRole.ADMIN,
-        UserRole.CENSADOR,
-    ])),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(
+        check_role(
+            [
+                UserRole.ADMIN,
+                UserRole.CENSADOR,
+            ]
+        )
+    ),
+    db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Persona).where(Persona.id_persona == persona_id)
-    )
+    result = await db.execute(select(Persona).where(Persona.id_persona == persona_id))
     persona = result.scalar_one_or_none()
     if not persona:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Persona no encontrada"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona no encontrada")
 
     familia_id = persona.id_familia
     await db.delete(persona)
@@ -168,7 +181,7 @@ async def delete_persona(
 
     # Recalcular puntaje de la familia a la que pertenecía
     if familia_id is not None:
-        await recalcular_puntaje_familia(db, familia_id)
+        await recalcular_puntaje_familia(db, cast(int, familia_id))
 
     return None
 
@@ -182,26 +195,24 @@ async def delete_persona(
 )
 async def get_personas_by_familia(
     familia_id: int,
-    current_user: dict = Depends(check_role([
-        UserRole.ADMIN,
-        UserRole.CENSADOR,
-        UserRole.COORDINADOR_LOGISTICA,
-        UserRole.FUNCIONARIO_CONTROL,
-    ])),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(
+        check_role(
+            [
+                UserRole.ADMIN,
+                UserRole.CENSADOR,
+                UserRole.COORDINADOR_LOGISTICA,
+                UserRole.FUNCIONARIO_CONTROL,
+            ]
+        )
+    ),
+    db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Familia).where(Familia.id_familia == familia_id)
-    )
+    result = await db.execute(select(Familia).where(Familia.id_familia == familia_id))
     familia = result.scalar_one_or_none()
     if not familia:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Familia no encontrada"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Familia no encontrada")
 
-    result = await db.execute(
-        select(Persona).where(Persona.id_familia == familia_id)
-    )
+    result = await db.execute(select(Persona).where(Persona.id_familia == familia_id))
     personas = result.scalars().all()
     return personas
 
@@ -214,20 +225,20 @@ async def get_personas_by_familia(
 async def create_persona_in_familia(
     familia_id: int,
     persona: PersonaCreate,
-    current_user: dict = Depends(check_role([
-        UserRole.ADMIN,
-        UserRole.CENSADOR,
-    ])),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(
+        check_role(
+            [
+                UserRole.ADMIN,
+                UserRole.CENSADOR,
+            ]
+        )
+    ),
+    db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Familia).where(Familia.id_familia == familia_id)
-    )
+    result = await db.execute(select(Familia).where(Familia.id_familia == familia_id))
     familia = result.scalar_one_or_none()
     if not familia:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Familia no encontrada"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Familia no encontrada")
 
     new_persona = Persona(
         id_familia=familia_id,
