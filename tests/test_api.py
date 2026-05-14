@@ -158,6 +158,8 @@ class TestInventario:
         b1 = next(b for b in data["bodegas"] if b["id_bodega"] == 1)
         arroz = next(l for l in b1["lineas"] if l["id_recurso"] == 1)
         assert arroz["cantidad_disponible"] == 450
+        assert arroz["alerta_activa"] is False
+        assert arroz["umbral_alerta"] is None
         cons_arroz = next(c for c in data["consolidado"] if c["id_recurso"] == 1)
         assert cons_arroz["cantidad_total"] == 450
 
@@ -197,9 +199,70 @@ class TestInventario:
         assert response.status_code == 200
 
 
-# =============================================================================
-# Usuarios
-# =============================================================================
+@pytest.mark.integration
+class TestInventarioAlertasHu16:
+    """HU-16 — umbral por recurso y listado de alertas."""
+
+    async def test_alertas_vacio_sin_umbral(self, client_auth: AsyncClient):
+        r = await client_auth.get("/inventario/alertas")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["total"] == 0
+        assert data["alertas"] == []
+
+    async def test_umbral_dispara_alerta_y_linea_inventario(self, client_auth: AsyncClient):
+        patch = await client_auth.patch(
+            "/recursos/1/umbral-alerta",
+            json={"umbral_alerta": 451},
+        )
+        assert patch.status_code == 200
+        assert patch.json()["umbral_alerta"] == 451
+
+        inv = await client_auth.get("/inventario/")
+        assert inv.status_code == 200
+        b1 = next(b for b in inv.json()["bodegas"] if b["id_bodega"] == 1)
+        arroz = next(l for l in b1["lineas"] if l["id_recurso"] == 1)
+        assert arroz["cantidad_disponible"] == 450
+        assert arroz["umbral_alerta"] == 451
+        assert arroz["alerta_activa"] is True
+
+        alert = await client_auth.get("/inventario/alertas")
+        assert alert.status_code == 200
+        body = alert.json()
+        assert body["total"] >= 1
+        a0 = next(a for a in body["alertas"] if a["id_recurso"] == 1 and a["id_bodega"] == 1)
+        assert a0["cantidad_disponible"] == 450
+        assert a0["umbral_alerta"] == 451
+
+        clear = await client_auth.patch(
+            "/recursos/1/umbral-alerta",
+            json={"umbral_alerta": None},
+        )
+        assert clear.status_code == 200
+        assert clear.json()["umbral_alerta"] is None
+
+        alert2 = await client_auth.get("/inventario/alertas")
+        assert alert2.json()["total"] == 0
+
+    async def test_patch_umbral_recurso_inexistente(self, client_auth: AsyncClient):
+        r = await client_auth.patch(
+            "/recursos/99999/umbral-alerta",
+            json={"umbral_alerta": 10},
+        )
+        assert r.status_code == 404
+
+    async def test_patch_umbral_rol_no_autorizado(self, client: AsyncClient):
+        token = create_access_token(1, "c@test.com", UserRole.CENSADOR.value)
+        r = await client.patch(
+            "/recursos/1/umbral-alerta",
+            json={"umbral_alerta": 100},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r.status_code == 403
+
+    async def test_alertas_bodega_inexistente(self, client_auth: AsyncClient):
+        r = await client_auth.get("/inventario/alertas", params={"id_bodega": 99999})
+        assert r.status_code == 404
 
 
 @pytest.mark.integration
