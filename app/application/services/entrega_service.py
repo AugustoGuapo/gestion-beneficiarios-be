@@ -262,6 +262,59 @@ class EntregaService:
         return f"{prefijo}{siguiente:05d}"
 
     @staticmethod
+    async def _ejecutar_transaccion_entrega(
+        db: AsyncSession,
+        payload: EntregaCreate,
+        codigo: str,
+        bodega: Bodega,
+        recursos: dict[int, Recurso],
+    ) -> Entrega:
+        """Ejecuta la transacción atómica de creación de entrega + detalles + movimientos."""
+        entrega = Entrega(
+            codigo=codigo,
+            estado=EstadoEntrega.ENTREGADA.value,
+            fecha_efectiva=payload.fecha_efectiva or date.today(),
+            id_familia=payload.id_familia,
+            id_bodega=bodega.id_bodega,
+            coordenadas=payload.coordenadas,
+            firma_digital=payload.firma_digital,
+        )
+        db.add(entrega)
+        await db.flush()
+
+        peso_total = Decimal("0")
+        for item in payload.detalles:
+            recurso = recursos[item.id_recurso]
+
+            detalle = DetalleEntrega(
+                id_entrega=entrega.id_entrega,
+                id_recurso=item.id_recurso,
+                cantidad=item.cantidad,
+            )
+            db.add(detalle)
+
+            movimiento = MovimientoInventario(
+                tipo="SALIDA",
+                cantidad=item.cantidad,
+                id_recurso=item.id_recurso,
+                id_bodega=bodega.id_bodega,
+            )
+            db.add(movimiento)
+
+            peso_unitario = Decimal(str(recurso.peso_unitario_kg or 0))
+            peso_total += peso_unitario * Decimal(item.cantidad)
+
+        peso_actual = Decimal(str(bodega.peso_actual_kg or 0))
+        nuevo_peso = peso_actual - peso_total
+        if nuevo_peso < 0:
+            nuevo_peso = Decimal("0")
+        bodega.peso_actual_kg = nuevo_peso
+
+        await db.commit()
+        await db.refresh(entrega)
+        return entrega
+
+    @staticmethod
     async def registrar_entrega(
         db: AsyncSession,
         payload: EntregaCreate,
@@ -288,6 +341,7 @@ class EntregaService:
         await EntregaService._validar_familia(db, payload.id_familia)
 
         fecha_efectiva = payload.fecha_efectiva or date.today()
+        recursos = await EntregaService._validar_recursos(db, payload.detalles)
         await EntregaService._validar_cobertura_3_dias(
             db=db,
             id_familia=payload.id_familia,
@@ -295,62 +349,23 @@ class EntregaService:
             username=username,
             ip_address=ip_address,
         )
-
-        recursos = await EntregaService._validar_recursos(db, payload.detalles)
         bodega = await EntregaService._resolver_bodega(db, payload.detalles, payload.id_bodega)
 
         codigo = await EntregaService._siguiente_codigo(db)
 
         try:
-            entrega = Entrega(
-                codigo=codigo,
-                estado=EstadoEntrega.ENTREGADA.value,
-                fecha_efectiva=fecha_efectiva,
-                id_familia=payload.id_familia,
-                id_bodega=bodega.id_bodega,
-                coordenadas=payload.coordenadas,
-                firma_digital=payload.firma_digital,
+            entrega = await EntregaService._ejecutar_transaccion_entrega(
+                db, payload, codigo, bodega, recursos
             )
-            db.add(entrega)
-            await db.flush()
-
-            peso_total = Decimal("0")
-            for item in payload.detalles:
-                recurso = recursos[item.id_recurso]
-
-                detalle = DetalleEntrega(
-                    id_entrega=entrega.id_entrega,
-                    id_recurso=item.id_recurso,
-                    cantidad=item.cantidad,
-                )
-                db.add(detalle)
-
-                movimiento = MovimientoInventario(
-                    tipo="SALIDA",
-                    cantidad=item.cantidad,
-                    id_recurso=item.id_recurso,
-                    id_bodega=bodega.id_bodega,
-                )
-                db.add(movimiento)
-
-                peso_unitario = Decimal(str(recurso.peso_unitario_kg or 0))
-                peso_total += peso_unitario * Decimal(item.cantidad)
-
-            peso_actual = Decimal(str(bodega.peso_actual_kg or 0))
-            nuevo_peso = peso_actual - peso_total
-            if nuevo_peso < 0:
-                nuevo_peso = Decimal("0")
-            bodega.peso_actual_kg = nuevo_peso
-
-            await db.commit()
         except HTTPException:
             await db.rollback()
             raise
         except Exception as exc:
+            logger.error("Error inesperado registrando entrega", exc_info=True)
             await db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error registrando entrega: {exc}",
+                detail="Error interno del servidor al registrar la entrega",
             ) from exc
 
         await db.refresh(entrega)

@@ -1,8 +1,67 @@
+import logging
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.models.familia import Familia
+from app.domain.models.inventario import Inventario
 from app.domain.models.plan_distribucion import PlanDistribucion, DetallePlanDistribucion
+from app.domain.models.recurso import Recurso
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
+
+
+async def _obtener_recursos_disponibles(db: AsyncSession) -> list[dict]:
+    """
+    Consulta recursos con stock disponible en el inventario consolidado.
+    Retorna lista de {id_recurso, cantidad} ordenada por prioridad (mayor stock primero).
+    """
+    result = await db.execute(
+        select(Inventario)
+        .where(Inventario.cantidad > 0)
+        .order_by(Inventario.cantidad.desc())
+    )
+    stock = result.scalars().all()
+    return [
+        {"id_recurso": int(s.recurso_id), "cantidad": int(s.cantidad)}
+        for s in stock
+    ]
+
+
+async def _asignar_recursos_por_familia(
+    db: AsyncSession,
+    plan_id: int,
+    recursos_disponibles: list[dict],
+    orden: int,
+    total_familias: int,
+) -> None:
+    """
+    Asigna recursos a una familia basado en el stock disponible.
+    Distribuye equitativamente: a cada familia se le asigna 1 unidad de cada
+    recurso prioritario (alimentos básicos, agua) que tenga stock suficiente.
+    """
+    # Recursos prioritarios: aquellos con categoría ALIMENTOS y stock >= 2
+    for recurso in recursos_disponibles:
+        if recurso["cantidad"] < 2:
+            continue  # No hay suficiente stock
+
+        # Verificar que el recurso sea de tipo ALIMENTOS (prioritario)
+        result = await db.execute(
+            select(Recurso).where(Recurso.id_recurso == recurso["id_recurso"])
+        )
+        rec = result.scalar_one_or_none()
+        if rec is None or rec.categoria != "ALIMENTOS":
+            continue
+
+        detalle = DetallePlanDistribucion(
+            id_plan=plan_id,
+            id_recurso=recurso["id_recurso"],
+            cantidad_asignada=1,
+            cantidad_entregada=0,
+        )
+        db.add(detalle)
+
+        # Descontar del stock disponible para la siguiente familia
+        recurso["cantidad"] -= 1
 
 
 async def generar_plan(db: AsyncSession) -> dict:
@@ -10,14 +69,20 @@ async def generar_plan(db: AsyncSession) -> dict:
     Genera un plan de distribución priorizado.
 
     Algoritmo:
-    1. Obtener familias elegibles (con puntaje > 0, sin plan activo)
-    2. Ordenar por puntaje descendente
-    3. Para cada familia, crear entrada en plan_distribucion
-    4. Asignar recursos según stock disponible (placeholder)
-
-    NOTA: La asignación de stock requiere coordinación con HU-19 (Dev 3).
-    Por ahora se asigna una cantidad base fija.
+    1. Obtener recursos disponibles con stock en inventario
+    2. Obtener familias elegibles (con puntaje > 0, sin plan activo)
+    3. Ordenar por puntaje descendente
+    4. Para cada familia, crear entrada en plan_distribucion
+    5. Asignar recursos según stock disponible (distribución equitativa)
     """
+    recursos_disponibles = await _obtener_recursos_disponibles(db)
+
+    if not recursos_disponibles:
+        return {
+            "mensaje": "No hay stock disponible para generar un plan de distribución",
+            "total_familias": 0,
+        }
+
     # Familias con plan activo (programada o en_curso)
     subquery_planes_activos = (
         select(PlanDistribucion.id_familia)
@@ -46,6 +111,8 @@ async def generar_plan(db: AsyncSession) -> dict:
         }
 
     planes_creados = 0
+    total_familias = len(familias_elegibles)
+
     for orden, familia in enumerate(familias_elegibles, start=1):
         plan = PlanDistribucion(
             fecha_generacion=datetime.utcnow(),
@@ -57,22 +124,10 @@ async def generar_plan(db: AsyncSession) -> dict:
         db.add(plan)
         await db.flush()  # Obtener id_plan sin commit
 
-        # Asignación de stock base (placeholder hasta integrar HU-19 de Dev 3)
-        # TODO: Consultar stock disponible y asignar según disponibilidad
-        recursos_base = [
-            {"id_recurso": 1, "cantidad": 2},  # Arroz x 5kg
-            {"id_recurso": 2, "cantidad": 1},  # Aceite x 1L
-            {"id_recurso": 6, "cantidad": 2},  # Agua potable x 5L
-        ]
-
-        for recurso in recursos_base:
-            detalle = DetallePlanDistribucion(
-                id_plan=plan.id_plan,
-                id_recurso=recurso["id_recurso"],
-                cantidad_asignada=recurso["cantidad"],
-                cantidad_entregada=0,
-            )
-            db.add(detalle)
+        # Asignar recursos según stock disponible
+        await _asignar_recursos_por_familia(
+            db, plan.id_plan, recursos_disponibles, orden, total_familias
+        )
 
         planes_creados += 1
 

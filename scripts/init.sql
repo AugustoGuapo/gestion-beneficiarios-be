@@ -636,8 +636,8 @@ ON CONFLICT (clave) DO NOTHING;
 -- USUARIOS DE PRUEBA
 -- Contraseña: Admin123 (hasheada con bcrypt)
 INSERT INTO usuario (nombre_completo, correo, password_hash, rol, activo) VALUES
-('Administrador Sistema',    'admin@sgah.com',         '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5YmMxSUmGEJiq', 'ADMIN',                    TRUE),
-('Coordinador Logística',    'coordinador@sgah.com',    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5YmMxSUmGEJiq', 'COORDINADOR_LOGISTICA',    TRUE),
-('Operador de Entregas',     'operador@sgah.com',       '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5YmMxSUmGEJiq', 'OPERADOR_ENTREGAS',        TRUE),
-('Registrador de Donaciones','registrador@sgah.com',    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5YmMxSUmGEJiq', 'REGISTRADOR_DONACIONES',   TRUE)
+('Administrador Sistema',    'admin@sgah.com',         '$2b$12$j0s62LNTAZwrPYvBV7KFLuK.e0N67S43AcPw6D7zuM29HRiZzl1Fi', 'ADMIN',                    TRUE),
+('Coordinador Logística',    'coordinador@sgah.com',    '$2b$12$j0s62LNTAZwrPYvBV7KFLuK.e0N67S43AcPw6D7zuM29HRiZzl1Fi', 'COORDINADOR_LOGISTICA',    TRUE),
+('Operador de Entregas',     'operador@sgah.com',       '$2b$12$j0s62LNTAZwrPYvBV7KFLuK.e0N67S43AcPw6D7zuM29HRiZzl1Fi', 'OPERADOR_ENTREGAS',        TRUE),
+('Registrador de Donaciones','registrador@sgah.com',    '$2b$12$j0s62LNTAZwrPYvBV7KFLuK.e0N67S43AcPw6D7zuM29HRiZzl1Fi', 'REGISTRADOR_DONACIONES',   TRUE)
 ON CONFLICT (correo) DO NOTHING;

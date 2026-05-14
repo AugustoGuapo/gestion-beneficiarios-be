@@ -282,3 +282,100 @@ class TestUsuarios:
         assert response.status_code == 200
         data = response.json()
         assert "nombre_completo" in data
+
+
+# =============================================================================
+# Entregas (HU-12 / HU-22 / HU-23)
+# =============================================================================
+
+
+@pytest.mark.integration
+class TestEntregas:
+    """Tests del endpoint de entregas."""
+
+    async def test_registrar_entrega_ok(self, client_auth: AsyncClient):
+        """Debe registrar una entrega exitosamente."""
+        response = await client_auth.post(
+            "/entregas/",
+            json={
+                "id_familia": 1,
+                "detalles": [{"id_recurso": 1, "cantidad": 2}],
+            },
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["codigo"].startswith("ENT-")
+        assert data["estado"] == "ENTREGADA"
+        assert len(data["detalles"]) == 1
+        assert data["detalles"][0]["id_recurso"] == 1
+
+    async def test_registrar_entrega_familia_inexistente(self, client_auth: AsyncClient):
+        """Debe retornar 404 para familia inexistente."""
+        response = await client_auth.post(
+            "/entregas/",
+            json={
+                "id_familia": 99999,
+                "detalles": [{"id_recurso": 1, "cantidad": 1}],
+            },
+        )
+        assert response.status_code == 404
+
+    async def test_registrar_entrega_recurso_inexistente(self, client_auth: AsyncClient):
+        """Debe retornar 404 para recurso inexistente."""
+        response = await client_auth.post(
+            "/entregas/",
+            json={
+                "id_familia": 1,
+                "detalles": [{"id_recurso": 99999, "cantidad": 1}],
+            },
+        )
+        assert response.status_code == 404
+
+    async def test_registrar_entrega_recurso_duplicado(self, client_auth: AsyncClient):
+        """Debe retornar 400 si se repite el mismo recurso."""
+        response = await client_auth.post(
+            "/entregas/",
+            json={
+                "id_familia": 1,
+                "detalles": [
+                    {"id_recurso": 1, "cantidad": 1},
+                    {"id_recurso": 1, "cantidad": 2},
+                ],
+            },
+        )
+        assert response.status_code == 400
+
+    async def test_registrar_entrega_unauthorized(self, client: AsyncClient):
+        """Debe retornar 401 sin token."""
+        response = await client.post(
+            "/entregas/",
+            json={
+                "id_familia": 1,
+                "detalles": [{"id_recurso": 1, "cantidad": 1}],
+            },
+        )
+        assert response.status_code == 401
+
+
+# =============================================================================
+# Planes de distribución (HU-21)
+# =============================================================================
+
+
+@pytest.mark.integration
+class TestPlanesDistribucion:
+    """Tests del endpoint de planes de distribución."""
+
+    async def test_generar_plan(self, client_auth: AsyncClient):
+        """Debe generar un plan de distribución."""
+        response = await client_auth.post("/planes-distribucion/generar")
+        assert response.status_code == 200
+        data = response.json()
+        assert "mensaje" in data
+
+    async def test_listar_planes(self, client_auth: AsyncClient):
+        """Debe listar planes de distribución."""
+        response = await client_auth.get("/planes-distribucion/")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)

@@ -13,7 +13,7 @@ class NivelRiesgoTipo(str, Enum):
 class ZonaResponse(BaseModel):
     id_zona: int
     nombre: str
-    nivel_riesgo: NivelRiesgoTipo
+    nivel_riesgo: str
 
     class Config:
         from_attributes = True

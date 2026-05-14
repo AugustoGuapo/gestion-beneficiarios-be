@@ -12,13 +12,10 @@ router = APIRouter(prefix="/zonas", tags=["zonas"])
 
 
 def _zona_to_payload(zona: Zona) -> dict:
-    nivel_riesgo = zona.nivel_riesgo_tipo
     return {
         "id_zona": zona.id_zona,
         "nombre": zona.nombre,
-        "nivel_riesgo": nivel_riesgo.value
-        if hasattr(nivel_riesgo, "value")
-        else (nivel_riesgo or "bajo"),
+        "nivel_riesgo": zona.nivel_riesgo_tipo or "bajo",
     }
 
 
