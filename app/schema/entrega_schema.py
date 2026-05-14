@@ -74,4 +74,4 @@ class EntregaResponse(BaseModel):
     )
     coordenadas: str | None = None
     firma_digital: str | None = None
-    detalles: list[DetalleEntregaResponse] = []
+    detalles: list[DetalleEntregaResponse] = Field(default_factory=list)

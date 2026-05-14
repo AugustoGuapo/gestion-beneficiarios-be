@@ -1,4 +1,4 @@
-"""Router de entregas (HU-22 + HU-23)."""
+"""Router de entregas (HU-12 + HU-22 + HU-23)."""
 
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +22,7 @@ _ROLES_PERMITIDOS = [
     "/",
     response_model=EntregaResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Registrar entrega individual a una familia (HU-22 + HU-23)",
+    summary="Registrar entrega individual a una familia (HU-12 + HU-22 + HU-23)",
 )
 async def registrar_entrega(
     payload: EntregaCreate,
@@ -33,12 +33,14 @@ async def registrar_entrega(
     """Registra una entrega individual a una familia.
 
     Reglas:
-    - **HU-22**: la familia debe existir, los recursos deben existir y estar
-      activos, y debe haber stock suficiente en la bodega elegida (o en alguna
-      del sistema si no se especifica `id_bodega`). La operacion es atomica.
-    - **HU-23**: si ya existe una entrega no anulada para la misma familia en
-      la misma `fecha_efectiva`, se rechaza con `409 Conflict` y se registra
-      el intento en `audit_log` (action = `ENTREGA_DUPLICADA_BLOQUEADA`).
+        - **RN-02**: si la familia recibió ayuda en los últimos 3 días, se
+            rechaza con `400 Bad Request` y se registra el intento en `audit_log`.
+        - **HU-22 / RN-05**: la familia debe existir, los recursos deben existir y
+            estar activos, y debe haber stock suficiente en la bodega elegida (o en
+            alguna del sistema si no se especifica `id_bodega`). La operación es
+            atomica y descuenta el inventario automáticamente.
+        - **HU-23 / RN-07**: la entrega genera un código secuencial tipo
+            `ENT-2026-XXXXX`.
     """
     username = current_user.get("email") if isinstance(current_user, dict) else None
     ip_address = request.client.host if request.client else None

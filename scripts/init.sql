@@ -182,6 +182,7 @@ CREATE TABLE entrega (
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     fecha_efectiva DATE NOT NULL,
     id_familia INT,
+    id_bodega INT NOT NULL,
     coordenadas VARCHAR(100),
     firma_digital TEXT,
 
@@ -189,6 +190,12 @@ CREATE TABLE entrega (
     FOREIGN KEY (id_familia)
     REFERENCES familia(id_familia)
     ON DELETE CASCADE
+    ON UPDATE CASCADE,
+
+    CONSTRAINT fk_entrega_bodega
+    FOREIGN KEY (id_bodega)
+    REFERENCES bodega(id_bodega)
+    ON DELETE RESTRICT
     ON UPDATE CASCADE
 );
 
@@ -367,17 +374,18 @@ INSERT INTO movimiento_inventario (
 INSERT INTO entrega (
     fecha_efectiva,
     id_familia,
+    id_bodega,
     coordenadas,
     firma_digital
 ) VALUES
-('2025-01-15', 1, '8.7479,-75.8814', 'FIRMA_FAM1_001'),
-('2025-01-15', 2, '8.7490,-75.8820', 'FIRMA_FAM2_001'),
-('2025-01-16', 3, '8.7510,-75.8800', 'FIRMA_FAM3_001'),
-('2025-01-17', 1, '8.7479,-75.8814', 'FIRMA_FAM1_002'),
-('2025-01-18', 4, '8.7530,-75.8790', 'FIRMA_FAM4_001'),
-('2025-01-18', 5, '8.7550,-75.8770', 'FIRMA_FAM5_001'),
-('2025-01-19', 2, '8.7490,-75.8820', 'FIRMA_FAM2_002'),
-('2025-01-20', 6, '8.7560,-75.8760', 'FIRMA_FAM6_001');
+('2025-01-15', 1, 1, '8.7479,-75.8814', 'FIRMA_FAM1_001'),
+('2025-01-15', 2, 1, '8.7490,-75.8820', 'FIRMA_FAM2_001'),
+('2025-01-16', 3, 1, '8.7510,-75.8800', 'FIRMA_FAM3_001'),
+('2025-01-17', 1, 1, '8.7479,-75.8814', 'FIRMA_FAM1_002'),
+('2025-01-18', 4, 1, '8.7530,-75.8790', 'FIRMA_FAM4_001'),
+('2025-01-18', 5, 1, '8.7550,-75.8770', 'FIRMA_FAM5_001'),
+('2025-01-19', 2, 1, '8.7490,-75.8820', 'FIRMA_FAM2_002'),
+('2025-01-20', 6, 2, '8.7560,-75.8760', 'FIRMA_FAM6_001');
 
 -- DETALLE ENTREGAS
 INSERT INTO detalle_entrega (

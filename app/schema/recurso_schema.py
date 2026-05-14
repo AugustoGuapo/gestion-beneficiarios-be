@@ -22,7 +22,7 @@ class RecursoResponse(BaseModel):
     nombre: str
     categoria: CategoriaRecurso
     unidad_medida: UnidadMedida
-    peso_unitario_kg: float
+    peso_unitario_kg: float | None
     activo: bool
     id_origen: int | None = None
 
@@ -34,7 +34,7 @@ class RecursoCreate(BaseModel):
     nombre: str = Field(
         ...,
         min_length=2,
-        max_length=150,
+        max_length=100,
         description="Nombre del ítem en el catálogo",
     )
     categoria: CategoriaRecurso = Field(
@@ -45,7 +45,8 @@ class RecursoCreate(BaseModel):
     )
     peso_unitario_kg: float = Field(
         ...,
-        description="Peso por unidad en kilogramos (referencia logística)",
+        gt=0,
+        description="Peso por unidad en kilogramos (referencia logística), mayor que 0",
     )
     id_origen: int | None = Field(
         default=None,

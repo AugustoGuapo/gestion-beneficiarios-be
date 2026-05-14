@@ -24,8 +24,15 @@ class Entrega(Base):
         ForeignKey("familia.id_familia", ondelete="CASCADE", onupdate="CASCADE"),
         nullable=True,
     )
+    id_bodega = Column(
+        Integer,
+        ForeignKey("bodega.id_bodega", ondelete="RESTRICT", onupdate="CASCADE"),
+        nullable=False,
+    )
     coordenadas = Column(String(100), nullable=True)
     firma_digital = Column(Text, nullable=True)
+
+    bodega = relationship("Bodega", lazy="joined")
 
     detalles = relationship(
         "DetalleEntrega",
