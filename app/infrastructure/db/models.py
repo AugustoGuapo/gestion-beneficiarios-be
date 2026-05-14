@@ -6,6 +6,7 @@ from app.domain.models.donacion import Donacion
 from app.domain.models.donacion_recurso import DonacionRecurso
 from app.domain.models.entrega import Entrega
 from app.domain.models.familia import Familia
+from app.domain.models.familia_refugio import FamiliaRefugio
 from app.domain.models.inventario import Inventario
 from app.domain.models.movimiento_inventario import MovimientoInventario
 from app.domain.models.persona import Persona
@@ -25,6 +26,7 @@ __all__ = [
     "DonacionRecurso",
     "Entrega",
     "Familia",
+    "FamiliaRefugio",
     "Inventario",
     "MovimientoInventario",
     "Persona",
