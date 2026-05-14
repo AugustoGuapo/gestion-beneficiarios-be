@@ -11,6 +11,7 @@ from app.api import (
     focos_sanitarios,
     personas,
     planes_distribucion,
+    reportes,
     recursos,
     users,
     zonas,
@@ -32,3 +33,4 @@ app.include_router(configuracion_puntaje.router)
 app.include_router(planes_distribucion.router)
 app.include_router(audit_logs.router)
 app.include_router(focos_sanitarios.router)
+app.include_router(reportes.router)
