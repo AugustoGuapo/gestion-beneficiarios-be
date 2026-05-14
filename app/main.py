@@ -1,32 +1,21 @@
 from fastapi import FastAPI
-from app.api import users
-from app.api import personas
-from app.api import zonas
-from app.api import auth
-from app.api import familias
-from app.api import configuracion_puntaje
-from app.api import planes_distribucion
-from app.api import indicadores
-from app.api import audit_logs, auth, familias, focos_sanitarios, personas, users, zonas
-from app.api import bodegas, refugios
-from app.api import configuracion_puntaje, planes_distribucion
-from app.api import traslados
-from app.api import entregas
-
 from app.api import (
     audit_logs,
     auth,
     bodegas,
     configuracion_puntaje,
+    entregas,
     familias,
     focos_sanitarios,
+    indicadores,
     inventario,
+    mapa,
     personas,
     planes_distribucion,
+    recursos,
     refugios,
     reportes,
-    recursos,
-    mapa,
+    traslados,
     users,
     zonas,
 )

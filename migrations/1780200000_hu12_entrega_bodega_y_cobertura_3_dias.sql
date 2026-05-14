@@ -43,12 +43,9 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_entrega_familia_fecha_efectiva
     ON entrega(id_familia, fecha_efectiva DESC);
 
-CREATE TABLE IF NOT EXISTS inventario (
-    id_inventario SERIAL PRIMARY KEY,
-    id_bodega INTEGER REFERENCES bodega(id_bodega),
-    id_recurso INTEGER REFERENCES recurso(id_recurso),
-    stock_actual DECIMAL(10, 2) DEFAULT 0
-);
+-- ⚠️ NOTA: La tabla `inventario` (con recurso_id, cantidad) se creó
+--          en una migración anterior (1746600000). Aquí solo se asegura
+--          la FK y el índice para entrega-bodega.
 
 -- =====================================================================
 -- ROLLBACK
@@ -57,4 +54,3 @@ CREATE TABLE IF NOT EXISTS inventario (
 -- ALTER TABLE entrega DROP CONSTRAINT IF EXISTS fk_entrega_bodega;
 -- ALTER TABLE entrega DROP COLUMN IF EXISTS id_bodega;
 -- ALTER TABLE entrega DROP COLUMN IF EXISTS estado;
--- DROP TABLE IF EXISTS inventario;

@@ -40,8 +40,11 @@ BEGIN
 END $$;
 
 -- AUDIT LOG: requerido por el middleware
+-- Ya fue creada en init.sql o migración previa; aquí solo se omite
+-- para evitar conflictos de tipo de columna (SERIAL vs GENERATED AS IDENTITY).
+-- Si no existe, la crea.
 CREATE TABLE IF NOT EXISTS audit_log (
-    id_audit_log SERIAL PRIMARY KEY,
+    id_audit_log INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     username VARCHAR(255),
     method VARCHAR(20) NOT NULL,
     endpoint VARCHAR(255) NOT NULL,
@@ -49,7 +52,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
     status_code INTEGER NOT NULL,
     ip_address VARCHAR(100),
     payload JSON,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ROLLBACK

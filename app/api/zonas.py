@@ -4,7 +4,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import UserRole
 from app.core.security import check_role, get_current_user
-from app.core.security import check_role
 from app.domain.models.zona import Zona
 from app.infrastructure.db.session import get_db
 from app.schema.zona_schema import ZonaCreate, ZonaResponse
