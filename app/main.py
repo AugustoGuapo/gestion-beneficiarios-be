@@ -26,6 +26,7 @@ from app.api import (
     refugios,
     reportes,
     recursos,
+    mapa,
     users,
     zonas,
 )
@@ -65,5 +66,6 @@ app.include_router(audit_logs.router)
 app.include_router(focos_sanitarios.router)
 app.include_router(indicadores.router)
 app.include_router(reportes.router)
+app.include_router(mapa.router)
 app.include_router(traslados.router)
 app.include_router(entregas.router)
