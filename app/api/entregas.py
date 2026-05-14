@@ -1,6 +1,6 @@
-"""Router de entregas (HU-22): Registrar entrega individual."""
+"""Router de entregas (HU-22 + HU-23)."""
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.services.entrega_service import EntregaService
@@ -22,25 +22,29 @@ _ROLES_PERMITIDOS = [
     "/",
     response_model=EntregaResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Registrar entrega individual a una familia (HU-22)",
+    summary="Registrar entrega individual a una familia (HU-22 + HU-23)",
 )
 async def registrar_entrega(
     payload: EntregaCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(check_role(_ROLES_PERMITIDOS)),
 ) -> EntregaResponse:
     """Registra una entrega individual a una familia.
 
-    Reglas (HU-22):
-    - La familia debe existir.
-    - Todos los recursos solicitados deben existir y estar activos.
-    - Debe haber stock suficiente del recurso en la bodega elegida (o en alguna
-      bodega del sistema si no se especifica `id_bodega`).
-    - La operacion es atomica: si algo falla, no se persiste nada.
-    - Al concretar la entrega se registra un movimiento `SALIDA` por cada recurso
-      y se actualiza el `peso_actual_kg` de la bodega usada.
+    Reglas:
+    - **HU-22**: la familia debe existir, los recursos deben existir y estar
+      activos, y debe haber stock suficiente en la bodega elegida (o en alguna
+      del sistema si no se especifica `id_bodega`). La operacion es atomica.
+    - **HU-23**: si ya existe una entrega no anulada para la misma familia en
+      la misma `fecha_efectiva`, se rechaza con `409 Conflict` y se registra
+      el intento en `audit_log` (action = `ENTREGA_DUPLICADA_BLOQUEADA`).
     """
-    return await EntregaService.registrar_entrega(db, payload)
+    username = current_user.get("email") if isinstance(current_user, dict) else None
+    ip_address = request.client.host if request.client else None
+    return await EntregaService.registrar_entrega(
+        db, payload, username=username, ip_address=ip_address
+    )
 
 
 @router.get(
