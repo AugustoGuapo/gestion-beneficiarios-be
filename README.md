@@ -197,6 +197,18 @@ Catálogo base de tipos de recurso (inventario). Requiere autenticación y rol.
 
 **Regla de unicidad**: no se permiten dos recursos con la misma combinacion `nombre` + `categoria` (respuesta 409).
 
+### Inventario (HU-15)
+
+Consulta de stock por bodega a partir de `movimiento_inventario` (entradas menos salidas). Requiere autenticación y rol.
+
+| Método | Endpoint | Descripción | Auth | Roles permitidos |
+|--------|----------|-------------|------|------------------|
+| GET | `/inventario/` | Inventario por bodega y consolidado | ✅ | ADMIN, COORDINADOR_LOGISTICA, OPERADOR_ENTREGAS |
+
+**Query opcional**: `id_bodega` (entero) — filtra el detalle a una bodega; sin parámetro se listan todas las bodegas con sus líneas y un `consolidado` global.
+
+**Respuesta**: objeto con `bodegas` (cada una con `lineas`: recurso + `cantidad_disponible`) y `consolidado` (totales por recurso en el alcance de la consulta). Solo se incluyen líneas con saldo mayor que cero.
+
 ## Uso de la API
 
 ### 1. Obtener token
