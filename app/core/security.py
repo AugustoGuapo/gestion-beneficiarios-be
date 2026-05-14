@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from datetime import datetime, timedelta
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -54,10 +55,10 @@ def verify_token(token: str) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido o expirado",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> dict:
     """Dependency para obtener el usuario actual del token."""
     payload = verify_token(token)
     email = payload.get("sub")
@@ -76,7 +77,9 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
 def check_role(required_roles: list[UserRole]) -> Callable:
     """Factory para crear un guard que valida roles específicos."""
 
-    async def role_checker(current_user: dict = Depends(get_current_user)) -> dict:
+    async def role_checker(
+        current_user: Annotated[dict, Depends(get_current_user)],
+    ) -> dict:
         user_rol = current_user.get("rol")
         if user_rol not in [role.value for role in required_roles]:
             raise HTTPException(

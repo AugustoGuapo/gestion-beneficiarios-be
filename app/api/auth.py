@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.infrastructure.db.session import get_db
+
 from app.application.services.user_service import UserService
 from app.core.security import create_access_token, get_current_user
+from app.infrastructure.db.session import get_db
 from app.schema.user_schema import UserLoginRequest, UserLoginResponse
-
 
 router = APIRouter(prefix="/auth", tags=["autenticación"])
 
@@ -12,7 +14,7 @@ router = APIRouter(prefix="/auth", tags=["autenticación"])
 @router.post("/login", response_model=UserLoginResponse, summary="Login de usuario")
 async def login(
     login_request: UserLoginRequest,
-    db: AsyncSession = Depends(get_db)
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """
     Autenticarse en el sistema con email y contraseña.
@@ -25,11 +27,7 @@ async def login(
     - El usuario debe estar activo (no desactivado)
     """
     # Autenticar usuario
-    user = await UserService.authenticate_user(
-        db,
-        login_request.correo,
-        login_request.password
-    )
+    user = await UserService.authenticate_user(db, login_request.correo, login_request.password)
 
     # Crear token JWT
     access_token = create_access_token(user.id_usuario, user.correo, user.rol)
@@ -42,15 +40,15 @@ async def login(
             "nombre_completo": user.nombre_completo,
             "correo": user.correo,
             "rol": user.rol,
-            "activo": user.activo
-        }
+            "activo": user.activo,
+        },
     )
 
 
 @router.post("/refresh-token", response_model=UserLoginResponse, summary="Refrescar token")
 async def refresh_token(
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """
     Refrescar el token JWT para extender la sesión.
@@ -63,11 +61,7 @@ async def refresh_token(
     user = await UserService.get_user_by_id(db, current_user["user_id"])
 
     # Crear nuevo token JWT
-    access_token = create_access_token(
-        user.id_usuario,
-        user.correo,
-        user.rol
-    )
+    access_token = create_access_token(user.id_usuario, user.correo, user.rol)
 
     # Devolver respuesta estandarizada igual a /login
     return UserLoginResponse(
@@ -78,6 +72,6 @@ async def refresh_token(
             "nombre_completo": user.nombre_completo,
             "correo": user.correo,
             "rol": user.rol,
-            "activo": user.activo
-        }
+            "activo": user.activo,
+        },
     )

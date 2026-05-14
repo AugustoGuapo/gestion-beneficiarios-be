@@ -8,6 +8,9 @@ services:
     env_file:
       - .env
 
+    environment:
+      DB_HOST: db
+
     depends_on:
       db:
         condition: service_healthy
@@ -25,7 +28,10 @@ services:
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts:/docker-entrypoint-initdb.d
+      # Solo el esquema base. Montar ./scripts entero ejecutaba otros .sql/.sh
+      # en orden alfabético antes que init.sql y abortaba el bootstrap (sin tabla recurso).
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/00_init_schema.sql
+      - ./migrations:/migrations
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U root -d gestion_beneficiarios"]

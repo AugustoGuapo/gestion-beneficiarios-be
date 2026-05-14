@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.config import Settings
 
-
 engine = create_async_engine(
     Settings().database_url,
     echo=True,
@@ -22,4 +21,3 @@ SessionLocal = async_sessionmaker(
 async def get_db():
     async with SessionLocal() as session:
         yield session
-
