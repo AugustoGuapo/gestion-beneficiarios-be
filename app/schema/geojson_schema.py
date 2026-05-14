@@ -13,7 +13,7 @@ class FocoSanitarioProperties(BaseModel):
     acciones_tomadas: Optional[str] = None
     fecha_registro: str
     id_zona: Optional[int] = None
-    id_albergue: Optional[int] = None
+    id_refugio: Optional[int] = None
 
     model_config = {"from_attributes": True}
 

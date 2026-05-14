@@ -11,7 +11,7 @@ EstadoFoco = Literal["ACTIVO", "EN_ATENCION", "RESUELTO"]
 
 class FocoSanitarioCreate(BaseModel):
     id_zona: Optional[int] = None
-    id_albergue: Optional[int] = None
+    id_refugio: Optional[int] = None
     tipo_vector: TipoVector
     nivel_riesgo: NivelRiesgo
     acciones_tomadas: Optional[str] = None
@@ -19,9 +19,9 @@ class FocoSanitarioCreate(BaseModel):
     longitud: Optional[float] = None
 
     @model_validator(mode="after")
-    def validar_zona_o_albergue(self) -> "FocoSanitarioCreate":
-        if self.id_zona is None and self.id_albergue is None:
-            raise ValueError("Debe especificar al menos una zona o un albergue afectado.")
+    def validar_zona_o_refugio(self) -> "FocoSanitarioCreate":
+        if self.id_zona is None and self.id_refugio is None:
+            raise ValueError("Debe especificar al menos una zona o un refugio afectado.")
         return self
 
 
@@ -37,7 +37,7 @@ class FocoSanitarioUpdate(BaseModel):
 class FocoSanitarioResponse(BaseModel):
     id_foco: int
     id_zona: Optional[int] = None
-    id_albergue: Optional[int] = None
+    id_refugio: Optional[int] = None
     tipo_vector: str
     nivel_riesgo: str
     acciones_tomadas: Optional[str] = None

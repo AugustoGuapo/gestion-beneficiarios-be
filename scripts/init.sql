@@ -52,39 +52,18 @@ CREATE TABLE ubicacion (
 );
 
 -- =========================
--- TABLA ALBERGUE
+-- TABLA FAMILIA_REFUGIO
 -- =========================
-CREATE TABLE albergue (
-    id_albergue INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    capacidad INT,
-    id_ubicacion INT,
-
-    CONSTRAINT fk_ubicacion_albergue
-    FOREIGN KEY (id_ubicacion)
-    REFERENCES ubicacion(id_ubicacion)
-    ON DELETE SET NULL
-    ON UPDATE CASCADE
-);
-
--- =========================
--- TABLA FAMILIA_ALBERGUE
--- =========================
-CREATE TABLE familia_albergue (
+CREATE TABLE IF NOT EXISTS familia_refugio (
     id_familia INT,
-    id_albergue INT,
+    id_refugio INT,
     fecha_ingreso DATE,
 
-    PRIMARY KEY (id_familia, id_albergue),
+    PRIMARY KEY (id_familia, id_refugio),
 
-    CONSTRAINT fk_fa_familia
+    CONSTRAINT fk_fr_familia
     FOREIGN KEY (id_familia)
     REFERENCES familia(id_familia)
-    ON DELETE CASCADE,
-
-    CONSTRAINT fk_fa_albergue
-    FOREIGN KEY (id_albergue)
-    REFERENCES albergue(id_albergue)
     ON DELETE CASCADE
 );
 
@@ -285,11 +264,8 @@ INSERT INTO ubicacion (direccion, id_zona) VALUES
 ('Calle 22 # 7-40', 1),
 ('Barrio El Carmen', 2);
 
--- ALBERGUES
-INSERT INTO albergue (nombre, capacidad, id_ubicacion) VALUES
-('Albergue Coliseo Norte', 200, 1),
-('Albergue Escuela Sur',   150, 2),
-('Albergue Centro Vida',   100, 3);
+-- REFUGIOS
+-- (se insertan al final, luego de crear la tabla refugios)
 
 -- PERSONAS
 INSERT INTO persona (
@@ -321,10 +297,10 @@ INSERT INTO familia (id_representante) VALUES
 (9),
 (11);
 
--- ASIGNACIÓN A ALBERGUES
-INSERT INTO familia_albergue (
+-- ASIGNACIÓN A REFUGIOS
+INSERT INTO familia_refugio (
     id_familia,
-    id_albergue,
+    id_refugio,
     fecha_ingreso
 ) VALUES
 (1, 1, '2025-01-10'),
@@ -522,3 +498,25 @@ CREATE TABLE IF NOT EXISTS refugios (
 
 -- Crear índice si no existe
 CREATE INDEX IF NOT EXISTS idx_refugios_zona ON refugios(zona_id);
+
+INSERT INTO refugios (id, nombre, ubicacion_textual, latitud, longitud, capacidad_maxima_personas, ocupacion_actual, zona_id)
+VALUES
+    (1, 'Refugio Coliseo Norte', 'Calle 10 # 5-20', 8.75000000, -75.88000000, 200, 120, 1),
+    (2, 'Refugio Escuela Sur', 'Carrera 3 # 8-15', 8.74000000, -75.89000000, 150, 90, 2),
+    (3, 'Refugio Centro Vida', 'Avenida Central # 1-01', 8.76000000, -75.87000000, 100, 40, 3)
+ON CONFLICT (id) DO NOTHING;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fk_fr_refugio'
+    ) THEN
+        ALTER TABLE familia_refugio
+            ADD CONSTRAINT fk_fr_refugio
+            FOREIGN KEY (id_refugio)
+            REFERENCES refugios(id)
+            ON DELETE CASCADE;
+    END IF;
+END $$;

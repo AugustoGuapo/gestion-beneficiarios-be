@@ -238,8 +238,8 @@ El esquema se encuentra en `scripts/init.sql` e incluye las siguientes tablas **
 - **familia**: Grupos familiares
 - **zona**: Zonas geográficas
 - **ubicacion**: Direcciones
-- **albergue**: Centros de alojamiento
-- **familia_albergue**: Asignación familia-albergue
+- **refugios**: Centros de refugio temporal
+- **familia_refugio**: Asignación familia-refugio
 - **origen_recurso**: Fuentes de ayudas
 - **recurso**: Tipos de ayudas
 - **bodega**: Centros de almacenamiento
