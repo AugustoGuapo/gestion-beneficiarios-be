@@ -1,7 +1,4 @@
-from typing import Any
-
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.db.session import get_db
@@ -10,7 +7,6 @@ from app.core.security import get_current_user
 from app.schema.refugio_schema import RefugioCreate, RefugioResponse
 
 router = APIRouter(prefix="/refugios", tags=["refugios"])
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
 def _refugio_to_payload(refugio: Refugio) -> dict:
@@ -32,10 +28,9 @@ def _refugio_to_payload(refugio: Refugio) -> dict:
 
 @router.get("/", response_model=list[RefugioResponse])
 async def get_refugios(
-    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    get_current_user(token)
     result = await db.execute(select(Refugio))
     refugios = result.scalars().all()
     return [_refugio_to_payload(refugio) for refugio in refugios]
@@ -44,10 +39,9 @@ async def get_refugios(
 @router.get("/{refugio_id}", response_model=RefugioResponse)
 async def get_refugio(
     refugio_id: int,
-    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    get_current_user(token)
     result = await db.execute(select(Refugio).where(Refugio.id == refugio_id))
     refugio = result.scalar_one_or_none()
     if refugio is None:
@@ -61,11 +55,9 @@ async def get_refugio(
 @router.post("/", response_model=RefugioResponse, status_code=status.HTTP_201_CREATED)
 async def create_refugio(
     refugio: RefugioCreate,
-    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    get_current_user(token)
-
     new_refugio = Refugio(
         nombre=refugio.nombre,
         ubicacion_textual=refugio.ubicacion_textual,

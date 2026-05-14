@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.db.session import get_db
@@ -9,7 +8,6 @@ from app.core.security import get_current_user
 from app.schema.bodega_schema import BodegaCreate, BodegaResponse
 
 router = APIRouter(prefix="/bodegas", tags=["bodegas"])
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
 def _bodega_to_payload(bodega: Bodega) -> dict:
@@ -37,11 +35,10 @@ def _bodega_to_payload(bodega: Bodega) -> dict:
 
 @router.get("/", response_model=list[BodegaResponse])
 async def get_bodegas(
-    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Listar todas las bodegas (HU-11)"""
-    get_current_user(token)
     result = await db.execute(select(Bodega))
     bodegas = result.scalars().all()
     return [_bodega_to_payload(bodega) for bodega in bodegas]
@@ -50,11 +47,10 @@ async def get_bodegas(
 @router.get("/{bodega_id}", response_model=BodegaResponse)
 async def get_bodega(
     bodega_id: int,
-    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Obtener detalle de una bodega específica (HU-11)"""
-    get_current_user(token)
     result = await db.execute(select(Bodega).where(Bodega.id_bodega == bodega_id))
     bodega = result.scalar_one_or_none()
     if bodega is None:
@@ -68,7 +64,7 @@ async def get_bodega(
 @router.post("/", response_model=BodegaResponse, status_code=status.HTTP_201_CREATED)
 async def create_bodega(
     bodega: BodegaCreate,
-    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -77,8 +73,6 @@ async def create_bodega(
     Regla RN-03: Si peso_actual_kg > capacidad_maxima_kg, retorna 400 BadRequest
     Alerta: Si peso_actual_kg >= 85% de capacidad, retorna has_alerta=true
     """
-    get_current_user(token)
-
     zona_result = await db.execute(select(Zona).where(Zona.id_zona == bodega.zona_id))
     zona = zona_result.scalar_one_or_none()
     if zona is None:
