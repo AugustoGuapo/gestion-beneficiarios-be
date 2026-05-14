@@ -1,8 +1,9 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class UserRole(str, Enum):
+class UserRole(StrEnum):
     """Roles permitidos en el sistema SGAH"""
+
     ADMIN = "ADMIN"
     CENSADOR = "CENSADOR"
     OPERADOR_ENTREGAS = "OPERADOR_ENTREGAS"

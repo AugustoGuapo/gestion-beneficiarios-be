@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "SGAH - Sistema de Gestión de Ayudas Humanitarias",
-    "description": "API Backend para gestión de ayudas humanitarias - HU-01 y HU-02",
+    "description": "API Backend para gestión de ayudas humanitarias. Incluye HU-01, HU-02 y catálogo de recursos (HU-14).",
     "version": "1.0.0"
   },
   "variable": [
@@ -193,6 +193,56 @@
               "path": ["users", "5", "activate"]
             },
             "description": "Activar un usuario (activo=true, solo ADMIN)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Recursos",
+      "description": "HU-14 — Tipos de recurso del catálogo. Requiere token con rol REGISTRADOR_DONACIONES o COORDINADOR_LOGISTICA.",
+      "item": [
+        {
+          "name": "Listar recursos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/recursos/",
+              "host": ["{{base_url}}"],
+              "path": ["recursos", ""]
+            },
+            "description": "GET /recursos/ — mismo contrato que OpenAPI en /openapi.json"
+          }
+        },
+        {
+          "name": "Crear recurso",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Kit aseo prueba\",\n  \"categoria\": \"ASEO\",\n  \"unidad_medida\": \"UNIDAD\",\n  \"peso_unitario_kg\": 0.5,\n  \"id_origen\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/recursos/",
+              "host": ["{{base_url}}"],
+              "path": ["recursos", ""]
+            },
+            "description": "POST /recursos/. categoria y unidad_medida en MAYÚSCULAS (ver enum en Swagger /docs)."
           }
         }
       ]
