@@ -1,0 +1,83 @@
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.infrastructure.db.session import get_db
+from app.domain.models.refugio import Refugio
+from app.core.security import get_current_user
+from app.schema.refugio_schema import RefugioCreate, RefugioResponse
+
+router = APIRouter(prefix="/refugios", tags=["refugios"])
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+
+def _refugio_to_payload(refugio: Refugio) -> dict:
+    """Convert ORM model to response payload"""
+    latitud = getattr(refugio, "latitud")
+    longitud = getattr(refugio, "longitud")
+    return {
+        "id": refugio.id,
+        "nombre": refugio.nombre,
+        "ubicacion_textual": refugio.ubicacion_textual,
+        "latitud": float(latitud) if latitud is not None else 0.0,
+        "longitud": float(longitud) if longitud is not None else 0.0,
+        "capacidad_maxima_personas": refugio.capacidad_maxima_personas,
+        "ocupacion_actual": refugio.ocupacion_actual,
+        "zona_id": refugio.zona_id,
+        "fecha_registro": refugio.fecha_registro,
+    }
+
+
+@router.get("/", response_model=list[RefugioResponse])
+async def get_refugios(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+):
+    get_current_user(token)
+    result = await db.execute(select(Refugio))
+    refugios = result.scalars().all()
+    return [_refugio_to_payload(refugio) for refugio in refugios]
+
+
+@router.get("/{refugio_id}", response_model=RefugioResponse)
+async def get_refugio(
+    refugio_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+):
+    get_current_user(token)
+    result = await db.execute(select(Refugio).where(Refugio.id == refugio_id))
+    refugio = result.scalar_one_or_none()
+    if refugio is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Refugio no encontrado",
+        )
+    return _refugio_to_payload(refugio)
+
+
+@router.post("/", response_model=RefugioResponse, status_code=status.HTTP_201_CREATED)
+async def create_refugio(
+    refugio: RefugioCreate,
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+):
+    get_current_user(token)
+
+    new_refugio = Refugio(
+        nombre=refugio.nombre,
+        ubicacion_textual=refugio.ubicacion_textual,
+        latitud=refugio.latitud,
+        longitud=refugio.longitud,
+        capacidad_maxima_personas=refugio.capacidad_maxima_personas,
+        ocupacion_actual=refugio.ocupacion_actual,
+        zona_id=refugio.zona_id,
+    )
+
+    db.add(new_refugio)
+    await db.commit()
+    await db.refresh(new_refugio)
+
+    return _refugio_to_payload(new_refugio)

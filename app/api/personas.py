@@ -9,6 +9,7 @@ from app.core.security import get_current_user, check_role
 from app.core.constants import UserRole
 from app.schema.persona_schema import PersonaResponse, PersonaCreate, PersonaUpdate
 from app.application.services.puntaje_service import recalcular_puntaje_familia
+from typing import cast
 
 router = APIRouter(prefix="/personas", tags=["personas"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
@@ -22,7 +23,7 @@ async def get_personas(
         UserRole.COORDINADOR_LOGISTICA,
         UserRole.FUNCIONARIO_CONTROL,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     ):
     result = await db.execute(select(Persona))
     personas = result.scalars().all()
@@ -38,7 +39,7 @@ async def get_persona(
         UserRole.COORDINADOR_LOGISTICA,
         UserRole.FUNCIONARIO_CONTROL,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
         select(Persona).where(Persona.id_persona == persona_id)
@@ -58,7 +59,7 @@ async def create_persona(
         UserRole.ADMIN,
         UserRole.CENSADOR,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     if persona.id_familia is not None:
         result = await db.execute(
@@ -89,7 +90,7 @@ async def create_persona(
     await db.refresh(new_persona)
 
     if new_persona.id_familia is not None:
-        await recalcular_puntaje_familia(db, new_persona.id_familia)
+        await recalcular_puntaje_familia(db, cast(int, new_persona.id_familia))
 
     return new_persona
 
@@ -102,7 +103,7 @@ async def update_persona(
         UserRole.ADMIN,
         UserRole.CENSADOR,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
         select(Persona).where(Persona.id_persona == persona_id)
@@ -114,7 +115,7 @@ async def update_persona(
         )
 
     # Guardar id_familia anterior para recálculo si cambia de familia
-    familia_anterior = persona.id_familia
+    familia_anterior = cast(int | None, persona.id_familia)
 
     # Actualizar solo los campos enviados (no None)
     update_data = persona_data.model_dump(exclude_unset=True)
@@ -137,7 +138,7 @@ async def update_persona(
 
     # Recalcular puntaje de la familia nueva y la anterior (si cambiaron)
     if persona.id_familia is not None:
-        await recalcular_puntaje_familia(db, persona.id_familia)
+        await recalcular_puntaje_familia(db, cast(int, persona.id_familia))
     if familia_anterior is not None and familia_anterior != persona.id_familia:
         await recalcular_puntaje_familia(db, familia_anterior)
 
@@ -151,7 +152,7 @@ async def delete_persona(
         UserRole.ADMIN,
         UserRole.CENSADOR,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
         select(Persona).where(Persona.id_persona == persona_id)
@@ -168,7 +169,7 @@ async def delete_persona(
 
     # Recalcular puntaje de la familia a la que pertenecía
     if familia_id is not None:
-        await recalcular_puntaje_familia(db, familia_id)
+        await recalcular_puntaje_familia(db, cast(int, familia_id))
 
     return None
 
@@ -188,7 +189,7 @@ async def get_personas_by_familia(
         UserRole.COORDINADOR_LOGISTICA,
         UserRole.FUNCIONARIO_CONTROL,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
         select(Familia).where(Familia.id_familia == familia_id)
@@ -218,7 +219,7 @@ async def create_persona_in_familia(
         UserRole.ADMIN,
         UserRole.CENSADOR,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
         select(Familia).where(Familia.id_familia == familia_id)

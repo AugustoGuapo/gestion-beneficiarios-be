@@ -10,14 +10,18 @@ from app.domain.models.persona import Persona
 from app.domain.models.recurso import Recurso
 from app.domain.models.user import User
 from app.domain.models.zona import Zona
+from app.domain.models.refugio import Refugio
+from app.domain.models.bodega import Bodega
 
 __all__ = [
     "AuditLog",
+    "Bodega",
     "Donacion",
     "DonacionRecurso",
     "Inventario",
     "Persona",
     "Recurso",
+    "Refugio",
     "User",
     "Zona",
 ]

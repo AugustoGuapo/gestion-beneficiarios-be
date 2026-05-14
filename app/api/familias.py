@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select, func
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.db.session import get_db
 from app.domain.models.familia import Familia
 from app.domain.models.persona import Persona
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/familias", tags=["familias"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
-async def generar_codigo_familia(db: Session) -> str:
+async def generar_codigo_familia(db: AsyncSession) -> str:
     """Genera un código único con formato FAM-{año}-{NNNNN}."""
     year = datetime.utcnow().year
     result = await db.execute(func.max(Familia.id_familia))
@@ -32,7 +32,7 @@ async def get_familias(
         UserRole.COORDINADOR_LOGISTICA,
         UserRole.FUNCIONARIO_CONTROL,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Familia).order_by(Familia.fecha_registro.desc()))
     familias = result.scalars().all()
@@ -48,7 +48,7 @@ async def get_familia(
         UserRole.COORDINADOR_LOGISTICA,
         UserRole.FUNCIONARIO_CONTROL,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
         select(Familia).where(Familia.id_familia == familia_id)
@@ -68,7 +68,7 @@ async def create_familia(
         UserRole.ADMIN,
         UserRole.CENSADOR,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     if not familia.acepta_privacidad:
         raise HTTPException(

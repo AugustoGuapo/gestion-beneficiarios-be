@@ -6,7 +6,6 @@ from app.infrastructure.db.session import get_db
 from app.domain.models.zona import Zona
 from app.core.security import get_current_user, check_role
 from app.core.constants import UserRole
-from app.core.security import get_current_user
 from app.schema.zona_schema import ZonaCreate, ZonaResponse
 
 router = APIRouter(prefix="/zonas", tags=["zonas"])
@@ -30,7 +29,7 @@ async def get_zonas(
         UserRole.COORDINADOR_LOGISTICA,
         UserRole.FUNCIONARIO_CONTROL,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Zona))
     zonas = result.scalars().all()
@@ -46,7 +45,7 @@ async def get_zona(
         UserRole.COORDINADOR_LOGISTICA,
         UserRole.FUNCIONARIO_CONTROL,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Zona).where(Zona.id_zona == zona_id))
     zona = result.scalar_one_or_none()
