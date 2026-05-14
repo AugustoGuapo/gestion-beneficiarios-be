@@ -19,6 +19,10 @@ line-ending = "lf"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# Un solo event loop por sesión: el engine async de SQLAlchemy queda ligado al primer loop;
+# con "function" (default de pytest-asyncio) cada test usa otro loop y falla asyncpg.
+asyncio_default_test_loop_scope = "session"
+asyncio_default_fixture_loop_scope = "session"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]

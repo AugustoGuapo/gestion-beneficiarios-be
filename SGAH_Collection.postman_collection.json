@@ -1,0 +1,353 @@
+{
+  "info": {
+    "name": "SGAH - Sistema de Gestión de Ayudas Humanitarias",
+    "description": "API Backend para gestión de ayudas humanitarias. Incluye HU-01, HU-02 y catálogo de recursos (HU-14).",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Autenticación",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set(\"token\", jsonData.access_token);",
+                  "    pm.environment.set(\"user_id\", jsonData.usuario.id_usuario);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correo\": \"admin@sgah.com\",\n  \"password\": \"Admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Obtener token JWT para autenticación"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios",
+      "item": [
+        {
+          "name": "Crear Usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre_completo\": \"Carlos López Rodríguez\",\n  \"correo\": \"carlos.lopez@sgah.com\",\n  \"rol\": \"CENSADOR\",\n  \"password\": \"Password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/",
+              "host": ["{{base_url}}"],
+              "path": ["users", ""]
+            },
+            "description": "Crear un nuevo usuario (Solo ADMIN y COORDINADOR_LOGISTICA)"
+          }
+        },
+        {
+          "name": "Listar Usuarios",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/?skip=0&limit=100",
+              "host": ["{{base_url}}"],
+              "path": ["users", ""],
+              "query": [
+                {
+                  "key": "skip",
+                  "value": "0"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": "Obtener lista de usuarios con paginación"
+          }
+        },
+        {
+          "name": "Obtener Usuario por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/1",
+              "host": ["{{base_url}}"],
+              "path": ["users", "1"]
+            },
+            "description": "Obtener detalles de un usuario específico"
+          }
+        },
+        {
+          "name": "Actualizar Usuario",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre_completo\": \"Carlos López Rodríguez Actualizado\",\n  \"rol\": \"OPERADOR_ENTREGAS\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/1",
+              "host": ["{{base_url}}"],
+              "path": ["users", "1"]
+            },
+            "description": "Actualizar información de un usuario"
+          }
+        },
+        {
+          "name": "Desactivar Usuario",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/5",
+              "host": ["{{base_url}}"],
+              "path": ["users", "5"]
+            },
+            "description": "Desactivar un usuario (activo=false, solo ADMIN)"
+          }
+        },
+        {
+          "name": "Activar Usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/5/activate",
+              "host": ["{{base_url}}"],
+              "path": ["users", "5", "activate"]
+            },
+            "description": "Activar un usuario (activo=true, solo ADMIN)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Recursos",
+      "description": "HU-14 — Tipos de recurso del catálogo. Requiere token con rol REGISTRADOR_DONACIONES o COORDINADOR_LOGISTICA.",
+      "item": [
+        {
+          "name": "Listar recursos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/recursos/",
+              "host": ["{{base_url}}"],
+              "path": ["recursos", ""]
+            },
+            "description": "GET /recursos/ — mismo contrato que OpenAPI en /openapi.json"
+          }
+        },
+        {
+          "name": "Crear recurso",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Kit aseo prueba\",\n  \"categoria\": \"ASEO\",\n  \"unidad_medida\": \"UNIDAD\",\n  \"peso_unitario_kg\": 0.5,\n  \"id_origen\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/recursos/",
+              "host": ["{{base_url}}"],
+              "path": ["recursos", ""]
+            },
+            "description": "POST /recursos/. categoria y unidad_medida en MAYÚSCULAS (ver enum en Swagger /docs)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Flujos de Prueba",
+      "item": [
+        {
+          "name": "Flujo 1: Login y Crear Usuario",
+          "item": [
+            {
+              "name": "1. Login como Admin",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"correo\": \"admin@sgah.com\",\n  \"password\": \"Admin123\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "login"]
+                }
+              }
+            },
+            {
+              "name": "2. Crear nuevo usuario",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre_completo\": \"María García Martínez\",\n  \"correo\": \"maria.garcia@sgah.com\",\n  \"rol\": \"FUNCIONARIO_CONTROL\",\n  \"password\": \"Control123\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/users/",
+                  "host": ["{{base_url}}"],
+                  "path": ["users", ""]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Flujo 2: Intentar login con credenciales inválidas",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correo\": \"admin@sgah.com\",\n  \"password\": \"PasswordIncorrecto\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Flujo 3: Intentar crear usuario sin permisos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre_completo\": \"Test Usuario\",\n  \"correo\": \"test@sgah.com\",\n  \"rol\": \"CENSADOR\",\n  \"password\": \"Test123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/",
+              "host": ["{{base_url}}"],
+              "path": ["users", ""]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

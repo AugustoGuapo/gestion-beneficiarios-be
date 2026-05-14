@@ -8,7 +8,6 @@ y que el schema inicial (scripts/init.sql) ya fue aplicado.
 import pytest
 from httpx import AsyncClient
 
-
 # =============================================================================
 # Auth
 # =============================================================================
@@ -22,7 +21,7 @@ class TestAuth:
         """Debe retornar token para credenciales válidas."""
         response = await client.post(
             "/auth/login",
-            json={"username": "Admin Principal", "password": "password"},
+            json={"correo": "admin@sgah.com", "password": "Admin123"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -33,7 +32,7 @@ class TestAuth:
         """Debe retornar 401 para credenciales inválidas."""
         response = await client.post(
             "/auth/login",
-            json={"username": "usuario_inexistente", "password": "wrong"},
+            json={"correo": "noexiste@sgah.com", "password": "Admin123"},
         )
         assert response.status_code == 401
 
@@ -159,4 +158,4 @@ class TestUsuarios:
         response = await client_auth.get("/users/1")
         assert response.status_code == 200
         data = response.json()
-        assert "nombre" in data
+        assert "nombre_completo" in data

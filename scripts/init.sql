@@ -28,9 +28,12 @@ CREATE TABLE familia (
 -- =========================
 -- TABLA ZONA
 -- =========================
+CREATE TYPE nivel_riesgo_tipo AS ENUM ('bajo', 'medio', 'alto', 'crítico');
+
 CREATE TABLE zona (
     id_zona INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL
+    nombre VARCHAR(100) NOT NULL,
+    nivel_riesgo_tipo nivel_riesgo_tipo NOT NULL
 );
 
 -- =========================
@@ -115,15 +118,55 @@ CREATE TABLE recurso (
 );
 
 -- =========================
--- TABLA BODEGA
+-- TABLA BODEGA (Adaptada para HU-11)
 -- =========================
 CREATE TABLE bodega (
     id_bodega INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    nombre VARCHAR(100),
-    capacidad_max_kg DECIMAL(10,2),
-
-    CHECK (capacidad_max_kg <= 20000)
+    nombre VARCHAR(100) NOT NULL,
+    latitud DECIMAL(10, 8) NOT NULL DEFAULT 8.75000000,
+    longitud DECIMAL(11, 8) NOT NULL DEFAULT -75.88000000,
+    capacidad_max_kg DECIMAL(10, 2) NOT NULL DEFAULT 20000.00,
+    peso_actual_kg DECIMAL(10, 2) DEFAULT 0 CHECK (peso_actual_kg >= 0),
+    zona_id INTEGER NOT NULL REFERENCES zona(id_zona) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CHECK (capacidad_max_kg > 0)
 );
+
+-- Ajuste seguro para bases ya existentes
+ALTER TABLE IF EXISTS bodega
+    ADD COLUMN IF NOT EXISTS latitud DECIMAL(10, 8) NOT NULL DEFAULT 8.75000000,
+    ADD COLUMN IF NOT EXISTS longitud DECIMAL(11, 8) NOT NULL DEFAULT -75.88000000,
+    ADD COLUMN IF NOT EXISTS capacidad_max_kg DECIMAL(10, 2) NOT NULL DEFAULT 20000.00,
+    ADD COLUMN IF NOT EXISTS peso_actual_kg DECIMAL(10, 2) DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS zona_id INTEGER;
+
+UPDATE bodega
+SET zona_id = COALESCE(zona_id, 1)
+WHERE zona_id IS NULL;
+
+ALTER TABLE IF EXISTS bodega
+    ALTER COLUMN zona_id SET NOT NULL;
+
+ALTER TABLE IF EXISTS bodega
+    DROP COLUMN IF EXISTS fecha_registro;
+
+CREATE INDEX IF NOT EXISTS idx_bodega_zona ON bodega(zona_id);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.table_constraints
+        WHERE table_name = 'bodega'
+          AND constraint_name = 'fk_bodega_zona'
+    ) THEN
+        ALTER TABLE bodega
+            ADD CONSTRAINT fk_bodega_zona
+            FOREIGN KEY (zona_id)
+            REFERENCES zona(id_zona)
+            ON DELETE RESTRICT
+            ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- =========================
 -- TABLA MOVIMIENTO_INVENTARIO
@@ -205,17 +248,32 @@ CREATE TABLE usuario (
     CHECK (rol IN ('ADMIN', 'ONG', 'VOLUNTARIO'))
 );
 
+-- =========================
+-- TABLA AUDIT_LOG
+-- =========================
+CREATE TABLE IF NOT EXISTS audit_log (
+    id_audit_log INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    username VARCHAR(255),
+    method VARCHAR(20) NOT NULL,
+    endpoint VARCHAR(255) NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    status_code INTEGER NOT NULL,
+    ip_address VARCHAR(100),
+    payload JSON,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ==========================================
 -- INSERCIÓN DE DATOS DE PRUEBA
 -- ==========================================
 
 -- ZONAS
-INSERT INTO zona (nombre) VALUES
-('Zona Norte'),
-('Zona Sur'),
-('Zona Centro'),
-('Zona Rural Este'),
-('Zona Rural Oeste');
+INSERT INTO zona (nombre, nivel_riesgo_tipo) VALUES
+('Zona Norte', 'alto'),
+('Zona Sur', 'medio'),
+('Zona Centro', 'bajo'),
+('Zona Rural Este', 'crítico'),
+('Zona Rural Oeste', 'medio');
 
 -- UBICACIONES
 INSERT INTO ubicacion (direccion, id_zona) VALUES
@@ -302,10 +360,11 @@ INSERT INTO recurso (
 -- BODEGAS
 INSERT INTO bodega (
     nombre,
-    capacidad_max_kg
+    capacidad_max_kg,
+    zona_id
 ) VALUES
-('Bodega Central Montería', 20000),
-('Bodega Auxiliar Norte',   8000);
+('Bodega Central Montería', 20000, 1),
+('Bodega Auxiliar Norte',   8000, 2);
 
 -- MOVIMIENTOS INVENTARIO
 INSERT INTO movimiento_inventario (
@@ -385,12 +444,81 @@ INSERT INTO detalle_entrega (
 (8, 3, 2),
 (8, 9, 1);
 
--- USUARIOS
+-- ==========================================
+-- TABLA USUARIO (REFACTORIZADO - Sin redundancia)
+-- ==========================================
+-- Reemplazar tabla usuario anterior si existe
+DROP TABLE IF EXISTS usuario CASCADE;
+
+CREATE TABLE usuario (
+    id_usuario INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nombre_completo VARCHAR(255) NOT NULL,
+    correo VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    rol VARCHAR(50) NOT NULL DEFAULT 'REGISTRADOR_DONACIONES',
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CHECK (rol IN ('ADMIN', 'CENSADOR', 'OPERADOR_ENTREGAS', 'COORDINADOR_LOGISTICA', 'FUNCIONARIO_CONTROL', 'REGISTRADOR_DONACIONES'))
+);
+
+-- Crear índices
+CREATE INDEX idx_usuario_correo ON usuario(correo);
+CREATE INDEX idx_usuario_activo ON usuario(activo);
+CREATE INDEX idx_usuario_rol ON usuario(rol);
+
+-- USUARIOS DE PRUEBA
+-- Contraseña: Admin123 (hasheada con bcrypt)
 INSERT INTO usuario (
-    nombre,
-    rol
+    nombre_completo,
+    correo,
+    password_hash,
+    rol,
+    activo
 ) VALUES
-('Admin Principal', 'ADMIN'),
-('ONG Cruz Roja', 'ONG'),
-('Voluntario Juan', 'VOLUNTARIO'),
-('Voluntario Ana', 'VOLUNTARIO');
+(
+    'Administrador Sistema',
+    'admin@sgah.com',
+    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5YmMxSUmGEJiq',
+    'ADMIN',
+    TRUE
+),
+(
+    'Coordinador Logística',
+    'coordinador@sgah.com',
+    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5YmMxSUmGEJiq',
+    'COORDINADOR_LOGISTICA',
+    TRUE
+),
+(
+    'Operador de Entregas',
+    'operador@sgah.com',
+    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5YmMxSUmGEJiq',
+    'OPERADOR_ENTREGAS',
+    TRUE
+),
+(
+    'Registrador de Donaciones',
+    'registrador@sgah.com',
+    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5YmMxSUmGEJiq',
+    'REGISTRADOR_DONACIONES',
+    TRUE
+);
+-- =========================
+-- TABLA REFUGIOS (HU-10)
+-- =========================
+CREATE TABLE IF NOT EXISTS refugios (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    ubicacion_textual TEXT,
+    latitud DECIMAL(10, 8) NOT NULL,
+    longitud DECIMAL(11, 8) NOT NULL,
+    capacidad_maxima_personas INTEGER NOT NULL CHECK (capacidad_maxima_personas > 0),
+    ocupacion_actual INTEGER DEFAULT 0 CHECK (ocupacion_actual >= 0),
+    zona_id INTEGER REFERENCES zona(id_zona) ON DELETE SET NULL ON UPDATE CASCADE,
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Crear índice si no existe
+CREATE INDEX IF NOT EXISTS idx_refugios_zona ON refugios(zona_id);

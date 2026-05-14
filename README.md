@@ -109,6 +109,16 @@ La API estará disponible en `http://localhost:8000`
 curl http://localhost:8000/docs
 ```
 
+## Documentación interactiva y colección Postman
+
+La API expone documentación OpenAPI/Swagger automáticamente en `/docs` y `/redoc`.
+
+- Uso recomendado: primero explorar y probar endpoints en **Swagger UI** (`/docs`).
+- Si necesitas compartir o ejecutar escenarios de prueba, importa la colección Postman incluida: `SGAH_Collection.postman_collection.json`.
+
+La colección ya contiene scripts para guardar el token y variables de entorno.
+
+
 ## Variables de Entorno
 
 | Variable | Descripción | Default |
@@ -133,7 +143,7 @@ curl http://localhost:8000/docs
 **Request:**
 ```json
 {
-  "username": "Admin Principal",
+  "correo": "admin@sgah.com",
   "password": "cualquiera"
 }
 ```
@@ -150,7 +160,7 @@ curl http://localhost:8000/docs
 
 | Método | Endpoint | Descripción | Auth |
 |--------|----------|------------|------|
-| GET | `/users/` | Listar todos los usuarios | ✅ |
+| GET | `/users/` | Listar todos los usuarios (solo ADMIN y COORDINADOR_LOGISTICA) | ✅ |
 | GET | `/users/{id}` | Obtener usuario por ID | ✅ |
 | POST | `/users/` | Crear nuevo usuario | ✅ |
 
@@ -160,6 +170,7 @@ curl http://localhost:8000/docs
 |--------|----------|------------|------|
 | GET | `/personas/` | Listar todas las personas | ✅ |
 | GET | `/personas/{id}` | Obtener persona por ID | ✅ |
+| POST | `/personas/` | Crear nueva persona | ✅ |
 
 ### Zonas
 
@@ -167,6 +178,24 @@ curl http://localhost:8000/docs
 |--------|----------|------------|------|
 | GET | `/zonas/` | Listar todas las zonas | ✅ |
 | GET | `/zonas/{id}` | Obtener zona por ID | ✅ |
+| POST | `/zonas/` | Crear nueva zona | ✅ |
+
+### Recursos (HU-14)
+
+Catálogo base de tipos de recurso (inventario). Requiere autenticación y rol.
+
+| Método | Endpoint | Descripción | Auth | Roles permitidos |
+|--------|----------|-------------|------|------------------|
+| POST | `/recursos/` | Crear un tipo de recurso | ✅ | REGISTRADOR_DONACIONES, COORDINADOR_LOGISTICA |
+| GET | `/recursos/` | Listar tipos de recurso | ✅ | REGISTRADOR_DONACIONES, COORDINADOR_LOGISTICA |
+
+**Campos principales**: `nombre`, `categoria`, `unidad_medida`, `peso_unitario_kg`, `activo`, `id_origen` (opcional).
+
+**Enums**:
+- `categoria`: `ALIMENTOS`, `COBIJA`, `COLCHONETA`, `ASEO`, `MEDICAMENTO`
+- `unidad_medida`: `KG`, `UNIDAD`, `LITRO`
+
+**Regla de unicidad**: no se permiten dos recursos con la misma combinacion `nombre` + `categoria` (respuesta 409).
 
 ## Uso de la API
 
