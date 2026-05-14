@@ -33,9 +33,9 @@ async def get_zonas_sin_entregas(
             COUNT(DISTINCT f.id_familia) AS familias_por_zona
         FROM zona z
         JOIN ubicacion u ON u.id_zona = z.id_zona
-        JOIN albergue a ON a.id_ubicacion = u.id_ubicacion
-        JOIN familia_albergue fa ON fa.id_albergue = a.id_albergue
-        JOIN familia f ON f.id_familia = fa.id_familia
+        JOIN refugios r ON r.zona_id = z.id_zona
+        JOIN familia_refugio fr ON fr.id_refugio = r.id
+        JOIN familia f ON f.id_familia = fr.id_familia
         LEFT JOIN entrega e ON e.id_familia = f.id_familia
         WHERE e.id_entrega IS NULL
         GROUP BY z.id_zona, z.nombre, z.nivel_riesgo_tipo

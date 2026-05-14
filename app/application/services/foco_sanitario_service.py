@@ -99,7 +99,7 @@ class FocoSanitarioService:
                     acciones_tomadas=foco.acciones_tomadas,
                     fecha_registro=foco.fecha_registro.isoformat(),
                     id_zona=foco.id_zona,
-                    id_albergue=foco.id_albergue,
+                    id_refugio=foco.id_refugio,
                 ),
             )
             for foco in focos
