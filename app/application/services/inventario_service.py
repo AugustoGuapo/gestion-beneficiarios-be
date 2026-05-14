@@ -9,6 +9,8 @@ from app.domain.models.bodega import Bodega
 from app.domain.models.movimiento_inventario import MovimientoInventario
 from app.domain.models.recurso import Recurso
 from app.schema.inventario_schema import (
+    InventarioAlertaActiva,
+    InventarioAlertasResponse,
     InventarioConsolidadoLinea,
     InventarioConsultaResponse,
     InventarioLineaRecurso,
@@ -40,32 +42,38 @@ class InventarioService:
     """Cálculo de stock a partir de movimientos (sin duplicar reglas en routers)."""
 
     @staticmethod
-    async def _bodega_existe(db: AsyncSession, id_bodega: int) -> bool:
-        res = await db.execute(select(Bodega.id_bodega).where(Bodega.id_bodega == id_bodega))
-        return res.scalar_one_or_none() is not None
-
-    @staticmethod
-    async def _stock_rows(
-        db: AsyncSession,
-        id_bodega: int | None,
-    ) -> Sequence[tuple[int, str, int, str, str, str, int]]:
+    def _aggregado_subquery(id_bodega: int | None, solo_saldo_positivo: bool):
+        """Subconsulta agrupada (bodega, recurso) → cantidad disponible (DRY)."""
         suma = _suma_entrada_menos_salida()
         where_clauses = list(_filtros_movimiento_validos())
         if id_bodega is not None:
             where_clauses.append(MovimientoInventario.id_bodega == id_bodega)
 
-        inner = (
+        q = (
             select(
-                MovimientoInventario.id_bodega,
-                MovimientoInventario.id_recurso,
+                MovimientoInventario.id_bodega.label("id_bodega"),
+                MovimientoInventario.id_recurso.label("id_recurso"),
                 suma.label("cantidad_disponible"),
             )
             .where(*where_clauses)
             .group_by(MovimientoInventario.id_bodega, MovimientoInventario.id_recurso)
-            .having(suma > 0)
         )
+        if solo_saldo_positivo:
+            q = q.having(suma > 0)
+        return q.subquery()
 
-        sub = inner.subquery()
+    @staticmethod
+    async def _bodega_existe(db: AsyncSession, id_bodega: int) -> bool:
+        res = await db.execute(select(Bodega.id_bodega).where(Bodega.id_bodega == id_bodega))
+        return res.scalar_one_or_none() is not None
+
+    @staticmethod
+    async def _filas_stock_con_umbral(
+        db: AsyncSession,
+        id_bodega: int | None,
+        solo_saldo_positivo: bool,
+    ) -> Sequence[tuple[int, str, int, str, str, str, int, int | None]]:
+        sub = InventarioService._aggregado_subquery(id_bodega, solo_saldo_positivo)
         stmt = (
             select(
                 sub.c.id_bodega,
@@ -75,6 +83,7 @@ class InventarioService:
                 Recurso.categoria,
                 Recurso.unidad_medida,
                 sub.c.cantidad_disponible,
+                Recurso.umbral_alerta,
             )
             .select_from(sub)
             .join(Bodega, Bodega.id_bodega == sub.c.id_bodega)
@@ -85,10 +94,10 @@ class InventarioService:
 
     @staticmethod
     def _consolidado_desde_filas(
-        filas: Sequence[tuple[int, str, int, str, str, str, int]],
+        filas: Sequence[tuple[int, str, int, str, str, str, int, int | None]],
     ) -> list[InventarioConsolidadoLinea]:
         totales: dict[int, tuple[str, CategoriaRecurso, UnidadMedida, int]] = {}
-        for _bid, _bnom, rid, rnom, cat, um, qty in filas:
+        for _bid, _bnom, rid, rnom, cat, um, qty, _umbral in filas:
             rid_i = int(rid)
             qty_i = int(qty)
             if rid_i not in totales:
@@ -121,17 +130,24 @@ class InventarioService:
                     detail="Bodega no encontrada",
                 )
 
-        filas = await InventarioService._stock_rows(db, id_bodega)
+        filas = await InventarioService._filas_stock_con_umbral(
+            db, id_bodega, solo_saldo_positivo=True
+        )
         lineas_por_bodega: dict[int, list[InventarioLineaRecurso]] = defaultdict(list)
 
-        for bid, _bnom, rid, rnom, cat, um, qty in filas:
+        for bid, _bnom, rid, rnom, cat, um, qty, umb in filas:
+            qty_i = int(qty)
+            umb_i = int(umb) if umb is not None else None
+            alerta = umb_i is not None and qty_i < umb_i
             lineas_por_bodega[int(bid)].append(
                 InventarioLineaRecurso(
                     id_recurso=int(rid),
                     nombre=str(rnom),
                     categoria=CategoriaRecurso(str(cat)),
                     unidad_medida=UnidadMedida(str(um)),
-                    cantidad_disponible=int(qty),
+                    cantidad_disponible=qty_i,
+                    umbral_alerta=umb_i,
+                    alerta_activa=alerta,
                 )
             )
 
@@ -165,3 +181,55 @@ class InventarioService:
 
         consolidado = InventarioService._consolidado_desde_filas(filas)
         return InventarioConsultaResponse(bodegas=bodegas_out, consolidado=consolidado)
+
+    @staticmethod
+    async def listar_alertas_activas(
+        db: AsyncSession,
+        id_bodega: int | None,
+    ) -> InventarioAlertasResponse:
+        """Pares (bodega, recurso) con movimientos, umbral definido y stock estrictamente menor."""
+        if id_bodega is not None:
+            if not await InventarioService._bodega_existe(db, id_bodega):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Bodega no encontrada",
+                )
+
+        sub = InventarioService._aggregado_subquery(id_bodega, solo_saldo_positivo=False)
+        stmt = (
+            select(
+                sub.c.id_bodega,
+                Bodega.nombre,
+                sub.c.id_recurso,
+                Recurso.nombre,
+                Recurso.categoria,
+                Recurso.unidad_medida,
+                sub.c.cantidad_disponible,
+                Recurso.umbral_alerta,
+            )
+            .select_from(sub)
+            .join(Bodega, Bodega.id_bodega == sub.c.id_bodega)
+            .join(Recurso, Recurso.id_recurso == sub.c.id_recurso)
+            .where(
+                Recurso.umbral_alerta.isnot(None),
+                sub.c.cantidad_disponible < Recurso.umbral_alerta,
+            )
+            .order_by(sub.c.id_bodega, sub.c.id_recurso)
+        )
+        result = await db.execute(stmt)
+        rows = result.all()
+        alertas = [
+            InventarioAlertaActiva(
+                id_bodega=int(bid),
+                nombre_bodega=str(bnom),
+                id_recurso=int(rid),
+                nombre_recurso=str(rnom),
+                categoria=CategoriaRecurso(str(cat)),
+                unidad_medida=UnidadMedida(str(um)),
+                cantidad_disponible=max(0, int(qty)),
+                umbral_alerta=int(umb),
+            )
+            for bid, bnom, rid, rnom, cat, um, qty, umb in rows
+            if umb is not None
+        ]
+        return InventarioAlertasResponse(alertas=alertas, total=len(alertas))

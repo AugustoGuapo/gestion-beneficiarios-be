@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "SGAH - Sistema de Gestión de Ayudas Humanitarias",
-    "description": "API Backend para gestión de ayudas humanitarias. Incluye HU-01, HU-02, catálogo de recursos (HU-14) e inventario por bodega (HU-15).",
+    "description": "API Backend para gestión de ayudas humanitarias. Incluye HU-01, HU-02, catálogo de recursos (HU-14), inventario por bodega (HU-15) y alertas de inventario bajo (HU-16).",
     "version": "1.0.0"
   },
   "variable": [
@@ -245,12 +245,38 @@
             },
             "description": "POST /recursos/. categoria y unidad_medida en MAYÚSCULAS (ver enum en Swagger /docs)."
           }
+        },
+        {
+          "name": "PATCH umbral alerta inventario (HU-16)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"umbral_alerta\": 500\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/recursos/1/umbral-alerta",
+              "host": ["{{base_url}}"],
+              "path": ["recursos", "1", "umbral-alerta"]
+            },
+            "description": "PATCH /recursos/{id}/umbral-alerta — ADMIN, COORDINADOR_LOGISTICA o REGISTRADOR_DONACIONES. Use {\"umbral_alerta\": null} para desactivar."
+          }
         }
       ]
     },
     {
-      "name": "Inventario (HU-15)",
-      "description": "GET /inventario/ — stock por bodega desde movimiento_inventario. Requiere token con rol ADMIN, COORDINADOR_LOGISTICA u OPERADOR_ENTREGAS. Ejecutar antes la carpeta Autenticación > Login.",
+      "name": "Inventario (HU-15, HU-16)",
+      "description": "GET /inventario/ y GET /inventario/alertas. Requiere token con rol ADMIN, COORDINADOR_LOGISTICA u OPERADOR_ENTREGAS. Ejecutar antes la carpeta Autenticación > Login.",
       "item": [
         {
           "name": "Listar inventario (todas las bodegas)",
@@ -288,7 +314,29 @@
               "host": ["{{base_url}}"],
               "path": ["inventario", ""]
             },
-            "description": "Sin query: todas las bodegas con lineas (saldo > 0) y consolidado global."
+            "description": "Sin query: todas las bodegas con lineas (saldo > 0) y consolidado global. Cada linea incluye umbral_alerta y alerta_activa (HU-16)."
+          }
+        },
+        {
+          "name": "Listar alertas inventario bajo (HU-16)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/inventario/alertas",
+              "host": ["{{base_url}}"],
+              "path": ["inventario", "alertas"]
+            },
+            "description": "Solo pares con umbral configurado y stock estrictamente menor al umbral. Respuesta: alertas + total."
           }
         },
         {

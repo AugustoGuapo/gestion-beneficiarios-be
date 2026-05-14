@@ -13,3 +13,4 @@ class Recurso(Base):
     peso_unitario_kg = Column(Numeric(10, 2), nullable=False)
     activo = Column(Boolean, nullable=False, default=True)
     id_origen = Column(Integer, ForeignKey("origen_recurso.id_origen"), nullable=True)
+    umbral_alerta = Column(Integer, nullable=True)
