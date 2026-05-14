@@ -1,16 +1,31 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
 from app.core.constants import UserRole
 
 
 class UserBase(BaseModel):
-    nombre_completo: str = Field(..., min_length=3, max_length=255, description="Nombre completo del usuario")
+    nombre_completo: str = Field(
+        ...,
+        min_length=3,
+        max_length=255,
+        description="Nombre completo del usuario",
+    )
     correo: EmailStr = Field(..., description="Email único del usuario")
-    rol: UserRole = Field(default=UserRole.REGISTRADOR_DONACIONES, description="Rol del usuario")
+    rol: UserRole = Field(
+        default=UserRole.REGISTRADOR_DONACIONES,
+        description="Rol del usuario",
+    )
 
 
 class UserCreate(UserBase):
-    password: str = Field(..., min_length=8, max_length=100, description="Contraseña (mínimo 8 caracteres)")
+    password: str = Field(
+        ...,
+        min_length=8,
+        max_length=100,
+        description="Contraseña (mínimo 8 caracteres)",
+    )
 
     @field_validator("password")
     @classmethod
