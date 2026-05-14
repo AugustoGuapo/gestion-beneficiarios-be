@@ -1,4 +1,8 @@
 from fastapi import FastAPI
+from app.api import audit_logs, auth, familias, focos_sanitarios, personas, users, zonas
+from app.api import bodegas, refugios
+from app.api import configuracion_puntaje, planes_distribucion
+from app.api import entregas
 
 from app.api import (
     audit_logs,
@@ -51,3 +55,4 @@ app.include_router(planes_distribucion.router)
 app.include_router(audit_logs.router)
 app.include_router(focos_sanitarios.router)
 app.include_router(reportes.router)
+app.include_router(entregas.router)
