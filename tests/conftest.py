@@ -91,4 +91,4 @@ def sample_user_data() -> dict:
 @pytest.fixture
 def sample_zona_data() -> dict:
     """Datos de ejemplo para crear una zona."""
-    return {"nombre": "Zona Test"}
+    return {"nombre": "Zona Test", "nivel_riesgo": "medio"}

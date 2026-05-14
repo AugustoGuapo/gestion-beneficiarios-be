@@ -170,6 +170,7 @@ La colección ya contiene scripts para guardar el token y variables de entorno.
 |--------|----------|------------|------|
 | GET | `/personas/` | Listar todas las personas | ✅ |
 | GET | `/personas/{id}` | Obtener persona por ID | ✅ |
+| POST | `/personas/` | Crear nueva persona | ✅ |
 
 ### Zonas
 
@@ -177,6 +178,7 @@ La colección ya contiene scripts para guardar el token y variables de entorno.
 |--------|----------|------------|------|
 | GET | `/zonas/` | Listar todas las zonas | ✅ |
 | GET | `/zonas/{id}` | Obtener zona por ID | ✅ |
+| POST | `/zonas/` | Crear nueva zona | ✅ |
 
 ## Uso de la API
 
