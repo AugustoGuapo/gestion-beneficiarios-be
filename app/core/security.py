@@ -76,6 +76,7 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> dict:
 
 def check_role(required_roles: list[UserRole]) -> Callable:
     """Factory para crear un guard que valida roles específicos."""
+
     async def role_checker(
         current_user: Annotated[dict, Depends(get_current_user)],
     ) -> dict:

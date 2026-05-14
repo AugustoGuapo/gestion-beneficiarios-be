@@ -1,4 +1,5 @@
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+
 from app.infrastructure.db.base import Base
 
 
