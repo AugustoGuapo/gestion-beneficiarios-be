@@ -1,7 +1,9 @@
-"""Servicio de entregas (HU-22).
+"""Servicio de entregas (HU-22 + HU-23).
 
 Implementa la logica de registrar una entrega individual de forma atomica:
 - Valida familia y recursos.
+- HU-23: bloquea duplicados por (id_familia, fecha_efectiva) y deja
+  trazabilidad explicita en `audit_log`.
 - Resuelve la bodega de la cual descontar (parametro del usuario o autoseleccion).
 - Verifica stock suficiente por (recurso, bodega) usando movimiento_inventario.
 - Genera un codigo legible secuencial por anio (ENT-AAAA-NNNNN).
@@ -9,6 +11,7 @@ Implementa la logica de registrar una entrega individual de forma atomica:
 - Actualiza el peso_actual_kg de la bodega para mantener consistencia con HU-11.
 """
 
+import logging
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -16,12 +19,14 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.models.audit_log import AuditLog
 from app.domain.models.bodega import Bodega
 from app.domain.models.detalle_entrega import DetalleEntrega
 from app.domain.models.entrega import Entrega
 from app.domain.models.familia import Familia
 from app.domain.models.movimiento_inventario import MovimientoInventario
 from app.domain.models.recurso import Recurso
+from app.infrastructure.db.session import SessionLocal
 from app.schema.entrega_schema import (
     DetalleEntregaItem,
     DetalleEntregaResponse,
@@ -29,6 +34,8 @@ from app.schema.entrega_schema import (
     EntregaResponse,
     EstadoEntrega,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class EntregaService:
@@ -159,6 +166,93 @@ class EntregaService:
         )
 
     @staticmethod
+    async def _registrar_auditoria_duplicado(
+        username: str | None,
+        ip_address: str | None,
+        id_familia: int,
+        fecha_efectiva: date,
+        entrega_existente: Entrega,
+    ) -> None:
+        """Persiste un registro explicito de intento bloqueado (HU-23).
+
+        Usa una sesion independiente para asegurar que el log sobreviva al
+        rollback de la transaccion principal de la entrega.
+        """
+        try:
+            async with SessionLocal() as session:
+                log = AuditLog(
+                    username=username,
+                    method="POST",
+                    endpoint="/entregas/",
+                    action="ENTREGA_DUPLICADA_BLOQUEADA",
+                    status_code=status.HTTP_409_CONFLICT,
+                    ip_address=ip_address,
+                    payload={
+                        "id_familia": id_familia,
+                        "fecha_efectiva": str(fecha_efectiva),
+                        "entrega_existente": {
+                            "id_entrega": entrega_existente.id_entrega,
+                            "codigo": entrega_existente.codigo,
+                            "estado": entrega_existente.estado,
+                        },
+                    },
+                )
+                session.add(log)
+                await session.commit()
+        except Exception:
+            logger.exception("Error registrando auditoria de entrega duplicada")
+
+    @staticmethod
+    async def _validar_no_duplicada(
+        db: AsyncSession,
+        id_familia: int,
+        fecha_efectiva: date,
+        username: str | None,
+        ip_address: str | None,
+    ) -> None:
+        """HU-23: rechaza registrar otra entrega para la misma familia en el mismo dia.
+
+        Reglas:
+        - Se ignoran entregas con estado `ANULADA` (no cuentan como duplicado).
+        - Se devuelve `409 Conflict` con datos de la entrega existente.
+        - Se registra el intento bloqueado en `audit_log` con accion explicita.
+        """
+        result = await db.execute(
+            select(Entrega).where(
+                Entrega.id_familia == id_familia,
+                Entrega.fecha_efectiva == fecha_efectiva,
+                Entrega.estado != EstadoEntrega.ANULADA.value,
+            )
+        )
+        duplicada = result.scalars().first()
+        if duplicada is None:
+            return
+
+        await EntregaService._registrar_auditoria_duplicado(
+            username=username,
+            ip_address=ip_address,
+            id_familia=id_familia,
+            fecha_efectiva=fecha_efectiva,
+            entrega_existente=duplicada,
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "ENTREGA_DUPLICADA",
+                "message": (
+                    f"Ya existe una entrega registrada para la familia {id_familia} "
+                    f"en la fecha {fecha_efectiva}. No se permite duplicar."
+                ),
+                "entrega_existente": {
+                    "id_entrega": duplicada.id_entrega,
+                    "codigo": duplicada.codigo,
+                    "estado": duplicada.estado,
+                },
+            },
+        )
+
+    @staticmethod
     async def _siguiente_codigo(db: AsyncSession) -> str:
         """Genera codigo secuencial por anio: ENT-AAAA-NNNNN."""
         anio = datetime.utcnow().year
@@ -171,14 +265,22 @@ class EntregaService:
         return f"{prefijo}{siguiente:05d}"
 
     @staticmethod
-    async def registrar_entrega(db: AsyncSession, payload: EntregaCreate) -> EntregaResponse:
-        """Registra una entrega individual de forma atomica (HU-22).
+    async def registrar_entrega(
+        db: AsyncSession,
+        payload: EntregaCreate,
+        username: str | None = None,
+        ip_address: str | None = None,
+    ) -> EntregaResponse:
+        """Registra una entrega individual de forma atomica (HU-22 + HU-23).
 
         Validaciones (en orden):
         1. Familia existe.
-        2. Recursos existen y estan activos, sin duplicados.
-        3. Bodega especificada existe / hay una con stock suficiente para todo.
-        4. Stock suficiente por recurso.
+        2. HU-23: no existe otra entrega no anulada para la misma familia en
+           la misma `fecha_efectiva`. Si existe, se aborta con 409 y se
+           registra el intento en `audit_log`.
+        3. Recursos existen, estan activos y sin duplicados.
+        4. Bodega especificada existe (o hay una con stock suficiente para todo).
+        5. Stock suficiente por recurso.
 
         Efectos (en la misma transaccion):
         - INSERT entrega (estado='ENTREGADA', codigo generado).
@@ -187,11 +289,20 @@ class EntregaService:
         - UPDATE bodega.peso_actual_kg restando peso total entregado.
         """
         await EntregaService._validar_familia(db, payload.id_familia)
+
+        fecha_efectiva = payload.fecha_efectiva or date.today()
+        await EntregaService._validar_no_duplicada(
+            db=db,
+            id_familia=payload.id_familia,
+            fecha_efectiva=fecha_efectiva,
+            username=username,
+            ip_address=ip_address,
+        )
+
         recursos = await EntregaService._validar_recursos(db, payload.detalles)
         bodega = await EntregaService._resolver_bodega(db, payload.detalles, payload.id_bodega)
 
         codigo = await EntregaService._siguiente_codigo(db)
-        fecha_efectiva = payload.fecha_efectiva or date.today()
 
         try:
             entrega = Entrega(
