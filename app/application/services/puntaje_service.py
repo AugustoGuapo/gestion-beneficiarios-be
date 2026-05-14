@@ -1,5 +1,5 @@
 from sqlalchemy import select, func
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.models.persona import Persona
 from app.domain.models.familia import Familia
 from app.domain.models.configuracion_puntaje import ConfiguracionPuntaje
@@ -7,14 +7,14 @@ from app.domain.models.zona import Zona
 from datetime import datetime, timezone
 
 
-async def obtener_config(db: Session) -> dict:
+async def obtener_config(db: AsyncSession) -> dict:
     """Obtiene todas las configuraciones de puntaje como dict."""
     result = await db.execute(select(ConfiguracionPuntaje))
     configs = result.scalars().all()
     return {c.clave: c.valor for c in configs}
 
 
-async def recalcular_puntaje_familia(db: Session, familia_id: int) -> float:
+async def recalcular_puntaje_familia(db: AsyncSession, familia_id: int) -> float:
     """
     Calcula y guarda el puntaje de prioridad para una familia.
 

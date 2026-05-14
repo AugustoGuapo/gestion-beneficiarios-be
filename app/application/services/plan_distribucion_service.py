@@ -1,11 +1,11 @@
 from sqlalchemy import select, func
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.models.familia import Familia
 from app.domain.models.plan_distribucion import PlanDistribucion, DetallePlanDistribucion
 from datetime import datetime
 
 
-async def generar_plan(db: Session) -> dict:
+async def generar_plan(db: AsyncSession) -> dict:
     """
     Genera un plan de distribución priorizado.
 

@@ -100,7 +100,7 @@ async def create_persona(
     await db.refresh(new_persona)
 
     if new_persona.id_familia is not None:
-        await recalcular_puntaje_familia(db, new_persona.id_familia)
+        await recalcular_puntaje_familia(db, cast(int, new_persona.id_familia))
 
     return new_persona
 
@@ -125,7 +125,7 @@ async def update_persona(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona no encontrada")
 
     # Guardar id_familia anterior para recálculo si cambia de familia
-    familia_anterior = persona.id_familia
+    familia_anterior = cast(int | None, persona.id_familia)
 
     # Actualizar solo los campos enviados (no None)
     update_data = persona_data.model_dump(exclude_unset=True)
@@ -148,7 +148,7 @@ async def update_persona(
 
     # Recalcular puntaje de la familia nueva y la anterior (si cambiaron)
     if persona.id_familia is not None:
-        await recalcular_puntaje_familia(db, persona.id_familia)
+        await recalcular_puntaje_familia(db, cast(int, persona.id_familia))
     if familia_anterior is not None and familia_anterior != persona.id_familia:
         await recalcular_puntaje_familia(db, familia_anterior)
 
@@ -179,7 +179,7 @@ async def delete_persona(
 
     # Recalcular puntaje de la familia a la que pertenecía
     if familia_id is not None:
-        await recalcular_puntaje_familia(db, familia_id)
+        await recalcular_puntaje_familia(db, cast(int, familia_id))
 
     return None
 

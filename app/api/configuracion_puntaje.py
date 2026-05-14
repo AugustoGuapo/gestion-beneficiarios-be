@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.db.session import get_db
 from app.domain.models.configuracion_puntaje import ConfiguracionPuntaje
 from app.domain.models.familia import Familia
@@ -24,7 +24,7 @@ async def get_configuraciones(
         UserRole.COORDINADOR_LOGISTICA,
         UserRole.FUNCIONARIO_CONTROL,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(ConfiguracionPuntaje))
     configs = result.scalars().all()
@@ -39,7 +39,7 @@ async def update_configuracion(
         UserRole.ADMIN,
         UserRole.COORDINADOR_LOGISTICA,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
         select(ConfiguracionPuntaje).where(ConfiguracionPuntaje.clave == clave)
@@ -67,7 +67,7 @@ async def calcular_puntaje(
         UserRole.COORDINADOR_LOGISTICA,
         UserRole.FUNCIONARIO_CONTROL,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """Calcula y guarda el puntaje de prioridad para una familia."""
     result = await db.execute(

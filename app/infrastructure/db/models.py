@@ -9,9 +9,12 @@ from app.domain.models.plan_distribucion import DetallePlanDistribucion, PlanDis
 from app.domain.models.recurso import Recurso
 from app.domain.models.user import User
 from app.domain.models.zona import Zona
+from app.domain.models.refugio import Refugio
+from app.domain.models.bodega import Bodega
 
 __all__ = [
     "AuditLog",
+    "Bodega",
     "ConfiguracionPuntaje",
     "DetallePlanDistribucion",
     "Donacion",
@@ -21,6 +24,7 @@ __all__ = [
     "Persona",
     "PlanDistribucion",
     "Recurso",
+    "Refugio",
     "User",
     "Zona",
 ]

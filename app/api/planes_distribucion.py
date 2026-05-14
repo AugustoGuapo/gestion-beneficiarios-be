@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.db.session import get_db
 from app.domain.models.plan_distribucion import PlanDistribucion, DetallePlanDistribucion
 from app.core.security import get_current_user, check_role
@@ -25,7 +25,7 @@ async def get_planes(
         UserRole.FUNCIONARIO_CONTROL,
         UserRole.OPERADOR_ENTREGAS,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
         select(PlanDistribucion).order_by(PlanDistribucion.fecha_generacion.desc())
@@ -43,7 +43,7 @@ async def get_plan(
         UserRole.FUNCIONARIO_CONTROL,
         UserRole.OPERADOR_ENTREGAS,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
         select(PlanDistribucion).where(PlanDistribucion.id_plan == plan_id)
@@ -61,14 +61,16 @@ async def get_plan(
     )
     detalles = result.scalars().all()
 
-    return PlanDistribucionDetailResponse(
-        id_plan=plan.id_plan,
-        fecha_generacion=plan.fecha_generacion,
-        estado=plan.estado,
-        id_familia=plan.id_familia,
-        puntaje_al_generar=plan.puntaje_al_generar,
-        prioridad_orden=plan.prioridad_orden,
-        detalles=[DetallePlanResponse.model_validate(d) for d in detalles],
+    return PlanDistribucionDetailResponse.model_validate(
+        {
+            "id_plan": plan.id_plan,
+            "fecha_generacion": plan.fecha_generacion,
+            "estado": plan.estado,
+            "id_familia": plan.id_familia,
+            "puntaje_al_generar": plan.puntaje_al_generar,
+            "prioridad_orden": plan.prioridad_orden,
+            "detalles": [DetallePlanResponse.model_validate(d) for d in detalles],
+        }
     )
 
 
@@ -78,7 +80,7 @@ async def generar_nuevo_plan(
         UserRole.ADMIN,
         UserRole.COORDINADOR_LOGISTICA,
     ])),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """Genera un nuevo plan de distribución priorizado."""
     resultado = await generar_plan(db)
