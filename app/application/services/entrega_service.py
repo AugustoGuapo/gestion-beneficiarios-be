@@ -1,9 +1,9 @@
-"""Servicio de entregas (HU-22 + HU-23).
+"""Servicio de entregas (HU-12 + HU-22 + HU-23).
 
 Implementa la logica de registrar una entrega individual de forma atomica:
 - Valida familia y recursos.
-- HU-23: bloquea duplicados por (id_familia, fecha_efectiva) y deja
-  trazabilidad explicita en `audit_log`.
+- RN-02 / HU-23: bloquea entregas si la familia recibió ayuda en los
+    últimos 3 dias y deja trazabilidad explicita en `audit_log`.
 - Resuelve la bodega de la cual descontar (parametro del usuario o autoseleccion).
 - Verifica stock suficiente por (recurso, bodega) usando movimiento_inventario.
 - Genera un codigo legible secuencial por anio (ENT-AAAA-NNNNN).
@@ -12,7 +12,7 @@ Implementa la logica de registrar una entrega individual de forma atomica:
 """
 
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException, status
@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 class EntregaService:
-    """Servicio que orquesta el registro de entregas (HU-22)."""
+    """Servicio que orquesta el registro de entregas (HU-12 + HU-22)."""
 
     @staticmethod
     async def _validar_familia(db: AsyncSession, id_familia: int) -> Familia:
@@ -166,14 +166,14 @@ class EntregaService:
         )
 
     @staticmethod
-    async def _registrar_auditoria_duplicado(
+    async def _registrar_auditoria_bloqueo_cobertura(
         username: str | None,
         ip_address: str | None,
         id_familia: int,
         fecha_efectiva: date,
-        entrega_existente: Entrega,
+        ultima_fecha: date,
     ) -> None:
-        """Persiste un registro explicito de intento bloqueado (HU-23).
+        """Persiste un registro explicito de intento bloqueado por cobertura.
 
         Usa una sesion independiente para asegurar que el log sobreviva al
         rollback de la transaccion principal de la entrega.
@@ -184,71 +184,68 @@ class EntregaService:
                     username=username,
                     method="POST",
                     endpoint="/entregas/",
-                    action="ENTREGA_DUPLICADA_BLOQUEADA",
-                    status_code=status.HTTP_409_CONFLICT,
+                    action="ENTREGA_BLOQUEADA_COBERTURA_3_DIAS",
+                    status_code=status.HTTP_400_BAD_REQUEST,
                     ip_address=ip_address,
                     payload={
                         "id_familia": id_familia,
                         "fecha_efectiva": str(fecha_efectiva),
-                        "entrega_existente": {
-                            "id_entrega": entrega_existente.id_entrega,
-                            "codigo": entrega_existente.codigo,
-                            "estado": entrega_existente.estado,
-                        },
+                        "ultima_fecha": str(ultima_fecha),
+                        "dias_transcurridos": (fecha_efectiva - ultima_fecha).days,
                     },
                 )
                 session.add(log)
                 await session.commit()
         except Exception:
-            logger.exception("Error registrando auditoria de entrega duplicada")
+            logger.exception("Error registrando auditoria de cobertura de entrega")
 
     @staticmethod
-    async def _validar_no_duplicada(
+    async def _validar_cobertura_3_dias(
         db: AsyncSession,
         id_familia: int,
         fecha_efectiva: date,
         username: str | None,
         ip_address: str | None,
     ) -> None:
-        """HU-23: rechaza registrar otra entrega para la misma familia en el mismo dia.
+        """RN-02: rechaza registrar otra entrega para la misma familia en menos de 3 dias.
 
         Reglas:
-        - Se ignoran entregas con estado `ANULADA` (no cuentan como duplicado).
-        - Se devuelve `409 Conflict` con datos de la entrega existente.
+        - Se ignoran entregas con estado `ANULADA`.
+        - Se devuelve `409 Conflict` si la ultima entrega fue hace menos de 3 dias.
         - Se registra el intento bloqueado en `audit_log` con accion explicita.
         """
         result = await db.execute(
-            select(Entrega).where(
+            select(func.max(Entrega.fecha_efectiva)).where(
                 Entrega.id_familia == id_familia,
-                Entrega.fecha_efectiva == fecha_efectiva,
                 Entrega.estado != EstadoEntrega.ANULADA.value,
             )
         )
-        duplicada = result.scalars().first()
-        if duplicada is None:
+        ultima_fecha = result.scalar_one_or_none()
+        if ultima_fecha is None:
             return
 
-        await EntregaService._registrar_auditoria_duplicado(
+        if (fecha_efectiva - ultima_fecha) >= timedelta(days=3):
+            return
+
+        await EntregaService._registrar_auditoria_bloqueo_cobertura(
             username=username,
             ip_address=ip_address,
             id_familia=id_familia,
             fecha_efectiva=fecha_efectiva,
-            entrega_existente=duplicada,
+            ultima_fecha=ultima_fecha,
         )
 
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail={
-                "code": "ENTREGA_DUPLICADA",
+                "code": "COBERTURA_NO_CUMPLIDA",
                 "message": (
-                    f"Ya existe una entrega registrada para la familia {id_familia} "
-                    f"en la fecha {fecha_efectiva}. No se permite duplicar."
+                    f"La familia {id_familia} ya recibió ayuda en los últimos 3 días. "
+                    f"Ultima entrega: {ultima_fecha}."
                 ),
-                "entrega_existente": {
-                    "id_entrega": duplicada.id_entrega,
-                    "codigo": duplicada.codigo,
-                    "estado": duplicada.estado,
-                },
+                "ultima_fecha": str(ultima_fecha),
+                "fecha_solicitada": str(fecha_efectiva),
+                "dias_transcurridos": (fecha_efectiva - ultima_fecha).days,
             },
         )
 
@@ -275,9 +272,9 @@ class EntregaService:
 
         Validaciones (en orden):
         1. Familia existe.
-        2. HU-23: no existe otra entrega no anulada para la misma familia en
-           la misma `fecha_efectiva`. Si existe, se aborta con 409 y se
-           registra el intento en `audit_log`.
+          2. RN-02: no existe una entrega reciente para la misma familia en los
+              ultimos 3 dias. Si existe, se aborta con 409 y se registra el
+              intento en `audit_log`.
         3. Recursos existen, estan activos y sin duplicados.
         4. Bodega especificada existe (o hay una con stock suficiente para todo).
         5. Stock suficiente por recurso.
@@ -291,7 +288,7 @@ class EntregaService:
         await EntregaService._validar_familia(db, payload.id_familia)
 
         fecha_efectiva = payload.fecha_efectiva or date.today()
-        await EntregaService._validar_no_duplicada(
+        await EntregaService._validar_cobertura_3_dias(
             db=db,
             id_familia=payload.id_familia,
             fecha_efectiva=fecha_efectiva,
@@ -310,6 +307,7 @@ class EntregaService:
                 estado=EstadoEntrega.ENTREGADA.value,
                 fecha_efectiva=fecha_efectiva,
                 id_familia=payload.id_familia,
+                id_bodega=bodega.id_bodega,
                 coordenadas=payload.coordenadas,
                 firma_digital=payload.firma_digital,
             )
@@ -374,7 +372,7 @@ class EntregaService:
             fecha=entrega.fecha,
             fecha_efectiva=entrega.fecha_efectiva,
             id_familia=entrega.id_familia,
-            id_bodega=bodega.id_bodega,
+            id_bodega=entrega.id_bodega,
             coordenadas=entrega.coordenadas,
             firma_digital=entrega.firma_digital,
             detalles=detalles_resp,
@@ -415,6 +413,7 @@ class EntregaService:
             fecha=entrega.fecha,
             fecha_efectiva=entrega.fecha_efectiva,
             id_familia=entrega.id_familia,
+            id_bodega=entrega.id_bodega,
             coordenadas=entrega.coordenadas,
             firma_digital=entrega.firma_digital,
             detalles=detalles_resp,
