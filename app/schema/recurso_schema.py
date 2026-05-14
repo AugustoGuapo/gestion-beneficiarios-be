@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CategoriaRecurso(StrEnum):
@@ -25,9 +25,29 @@ class RecursoResponse(BaseModel):
     peso_unitario_kg: float | None
     activo: bool
     id_origen: int | None = None
+    umbral_alerta: int | None = Field(
+        default=None,
+        description="HU-16: cantidad mínima; alerta si el stock por bodega cae por debajo",
+    )
 
     class Config:
         from_attributes = True
+
+
+class RecursoUmbralAlertaUpdate(BaseModel):
+    """Actualización parcial del umbral de alerta (HU-16)."""
+
+    umbral_alerta: int | None = Field(
+        ...,
+        description="Entero >= 1 para activar alertas; null desactiva el umbral para el recurso",
+    )
+
+    @field_validator("umbral_alerta")
+    @classmethod
+    def umbral_positivo_o_nulo(cls, v: int | None) -> int | None:
+        if v is not None and v < 1:
+            raise ValueError("umbral_alerta debe ser null o un entero >= 1")
+        return v
 
 
 class RecursoCreate(BaseModel):
@@ -51,4 +71,9 @@ class RecursoCreate(BaseModel):
     id_origen: int | None = Field(
         default=None,
         description="FK opcional a origen_recurso",
+    )
+    umbral_alerta: int | None = Field(
+        default=None,
+        ge=1,
+        description="HU-16: umbral opcional al crear el recurso",
     )

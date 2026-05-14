@@ -36,3 +36,4 @@ class Recurso(Base):
             name="recurso_peso_unitario_kg_check",
         ),
     )
+    umbral_alerta = Column(Integer, nullable=True)
