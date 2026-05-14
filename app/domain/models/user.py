@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from datetime import datetime
+
+from sqlalchemy import Boolean, Column, DateTime, Integer, String
+
 from app.infrastructure.db.base import Base
 
 
@@ -13,7 +15,15 @@ class User(Base):
     rol = Column(String(50), nullable=False, default="REGISTRADOR_DONACIONES")
     activo = Column(Boolean, nullable=False, default=True)
     fecha_creacion = Column(DateTime, nullable=False, default=datetime.utcnow)
-    fecha_actualizacion = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    fecha_actualizacion = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
 
     def __repr__(self):
-        return f"<User(id={self.id_usuario}, correo={self.correo}, rol={self.rol}, activo={self.activo})>"
+        return (
+            f"<User(id={self.id_usuario}, correo={self.correo}, "
+            f"rol={self.rol}, activo={self.activo})>"
+        )

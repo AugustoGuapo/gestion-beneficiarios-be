@@ -1,16 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import UserRole
 from app.core.security import check_role, get_current_user
+from app.core.security import check_role
 from app.domain.models.zona import Zona
 from app.infrastructure.db.session import get_db
 from app.schema.zona_schema import ZonaCreate, ZonaResponse
 
 router = APIRouter(prefix="/zonas", tags=["zonas"])
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
 def _zona_to_payload(zona: Zona) -> dict:
@@ -70,9 +69,17 @@ async def get_zona(
 
 @router.post("/", response_model=ZonaResponse, status_code=status.HTTP_201_CREATED)
 async def create_zona(
-    zona: ZonaCreate, token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)
+    zona: ZonaCreate,
+    current_user: dict = Depends(
+        check_role(
+            [
+                UserRole.ADMIN,
+                UserRole.CENSADOR,
+            ]
+        )
+    ),
+    db: AsyncSession = Depends(get_db),
 ):
-    get_current_user(token)
     new_zona = Zona(nombre=zona.nombre, nivel_riesgo_tipo=zona.nivel_riesgo)
     db.add(new_zona)
     await db.commit()

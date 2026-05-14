@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from typing import List
 
 
 class DonacionRecursoItem(BaseModel):
@@ -9,7 +8,7 @@ class DonacionRecursoItem(BaseModel):
 
 class DonacionCreate(BaseModel):
     referencia: str | None = None
-    items: List[DonacionRecursoItem]
+    items: list[DonacionRecursoItem]
 
 
 class DonacionResponse(BaseModel):
