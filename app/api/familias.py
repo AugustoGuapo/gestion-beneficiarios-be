@@ -80,6 +80,7 @@ async def create_familia(
     new_familia = Familia(
         codigo_familia=codigo,
         acepta_privacidad=familia.acepta_privacidad,
+        id_zona=familia.id_zona,
         fecha_registro=datetime.utcnow(),
         puntaje_prioridad=0.0,
     )

@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.models.recurso import Recurso
-from app.schema.recurso_schema import RecursoCreate
+from app.schema.recurso_schema import RecursoCreate, RecursoUmbralAlertaUpdate
 
 
 class RecursoService:
@@ -27,3 +27,21 @@ class RecursoService:
     async def list_recursos(db: AsyncSession) -> list[Recurso]:
         result = await db.execute(select(Recurso))
         return result.scalars().all()
+
+    @staticmethod
+    async def update_umbral_alerta(
+        db: AsyncSession,
+        id_recurso: int,
+        payload: RecursoUmbralAlertaUpdate,
+    ) -> Recurso:
+        result = await db.execute(select(Recurso).where(Recurso.id_recurso == id_recurso))
+        recurso = result.scalar_one_or_none()
+        if recurso is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Recurso no encontrado",
+            )
+        recurso.umbral_alerta = payload.umbral_alerta
+        await db.commit()
+        await db.refresh(recurso)
+        return recurso

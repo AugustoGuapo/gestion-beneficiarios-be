@@ -188,14 +188,34 @@ Catálogo base de tipos de recurso (inventario). Requiere autenticación y rol.
 |--------|----------|-------------|------|------------------|
 | POST | `/recursos/` | Crear un tipo de recurso | ✅ | REGISTRADOR_DONACIONES, COORDINADOR_LOGISTICA |
 | GET | `/recursos/` | Listar tipos de recurso | ✅ | REGISTRADOR_DONACIONES, COORDINADOR_LOGISTICA |
+| PATCH | `/recursos/{id_recurso}/umbral-alerta` | Configurar umbral de alerta de inventario bajo (HU-16) | ✅ | ADMIN, COORDINADOR_LOGISTICA, REGISTRADOR_DONACIONES |
 
-**Campos principales**: `nombre`, `categoria`, `unidad_medida`, `peso_unitario_kg`, `activo`, `id_origen` (opcional).
+**Campos principales**: `nombre`, `categoria`, `unidad_medida`, `peso_unitario_kg`, `activo`, `id_origen` (opcional), `umbral_alerta` (opcional, HU-16).
 
 **Enums**:
 - `categoria`: `ALIMENTOS`, `COBIJA`, `COLCHONETA`, `ASEO`, `MEDICAMENTO`
 - `unidad_medida`: `KG`, `UNIDAD`, `LITRO`
 
 **Regla de unicidad**: no se permiten dos recursos con la misma combinacion `nombre` + `categoria` (respuesta 409).
+
+### Inventario (HU-15, HU-16)
+
+Consulta de stock por bodega a partir de `movimiento_inventario` (entradas menos salidas). Las alertas de stock bajo (HU-16) se calculan en lectura y **no bloquean** donaciones ni entregas.
+
+| Método | Endpoint | Descripción | Auth | Roles permitidos |
+|--------|----------|-------------|------|------------------|
+| GET | `/inventario/` | Inventario por bodega y consolidado | ✅ | ADMIN, COORDINADOR_LOGISTICA, OPERADOR_ENTREGAS |
+| GET | `/inventario/alertas` | Alertas activas (stock &lt; umbral por recurso y bodega) | ✅ | ADMIN, COORDINADOR_LOGISTICA, OPERADOR_ENTREGAS |
+
+**Query opcional** (`GET /inventario/`): `id_bodega` (entero) — filtra el detalle a una bodega; sin parámetro se listan todas las bodegas con sus líneas y un `consolidado` global.
+
+**Query opcional** (`GET /inventario/alertas`): `id_bodega` — limita las alertas a una bodega.
+
+**Respuesta `GET /inventario/`**: objeto con `bodegas` (cada una con `lineas`: recurso + `cantidad_disponible` + `umbral_alerta` + `alerta_activa`) y `consolidado` (totales por recurso en el alcance de la consulta). Solo se incluyen líneas con saldo mayor que cero.
+
+**Respuesta `GET /inventario/alertas`**: `alertas` (lista de ítems con bodega, recurso, cantidades y umbral) y `total` (conteo, útil para paneles e indicadores).
+
+**Umbral (HU-16)**: columna `recurso.umbral_alerta` (entero ≥ 1 o `null`). Se configura con `PATCH /recursos/{id}/umbral-alerta` y body JSON `{"umbral_alerta": <número>}` o `{"umbral_alerta": null}` para desactivar.
 
 ## Uso de la API
 
@@ -238,8 +258,8 @@ El esquema se encuentra en `scripts/init.sql` e incluye las siguientes tablas **
 - **familia**: Grupos familiares
 - **zona**: Zonas geográficas
 - **ubicacion**: Direcciones
-- **albergue**: Centros de alojamiento
-- **familia_albergue**: Asignación familia-albergue
+- **refugios**: Centros de refugio temporal
+- **familia_refugio**: Asignación familia-refugio
 - **origen_recurso**: Fuentes de ayudas
 - **recurso**: Tipos de ayudas
 - **bodega**: Centros de almacenamiento

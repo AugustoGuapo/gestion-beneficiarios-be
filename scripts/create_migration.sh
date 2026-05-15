@@ -22,7 +22,7 @@ if [ $# -lt 1 ]; then
     echo "Uso: bash scripts/create_migration.sh \"descripcion_del_cambio\""
     echo ""
     echo "Ejemplos:"
-    echo "  bash scripts/create_migration.sh \"Crear tabla albergue\""
+    echo "  bash scripts/create_migration.sh \"Crear tabla refugios\""
     echo "  bash scripts/create_migration.sh \"Agregar columna email a usuario\""
     exit 1
 fi

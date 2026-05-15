@@ -1,0 +1,104 @@
+INSTRUCCIONES PARA LEVANTAR EL PROYECTO Y EJECUTAR LOS TESTS
+===========================================================
+
+Estas instrucciones son para principiantes. Asumimos que tienes Python instalado en tu computadora.
+Si no tienes Python, descárgalo desde https://www.python.org/downloads/ (versión 3.11 o superior).
+
+1. Abrir la terminal
+--------------------
+- En Windows: Busca "cmd" o "PowerShell" en el menú Inicio.
+- En macOS: Abre la aplicación "Terminal" (está en Aplicaciones > Utilidades).
+- En Linux: Abre tu terminal favorita (como gnome-terminal o konsole).
+
+2. Navegar a la carpeta del proyecto
+-------------------------------------
+Cambia a la carpeta donde está el proyecto. Por ejemplo, si está en tu escritorio:
+
+cd Desktop/gestion-beneficiarios-be
+
+(O usa la ruta completa si sabes dónde está).
+
+3. Crear un entorno virtual
+---------------------------
+Un entorno virtual es como una "caja" donde instalaremos las dependencias del proyecto sin afectar tu Python principal.
+
+python -m venv venv
+
+Esto crea una carpeta llamada "venv" en la carpeta del proyecto.
+
+4. Activar el entorno virtual
+-----------------------------
+Ahora "entramos" en esa caja virtual. El comando cambia según tu sistema operativo:
+
+- En Windows (cmd):
+  venv\Scripts\activate
+
+- En Windows (PowerShell):
+  venv\Scripts\Activate.ps1
+
+- En macOS/Linux:
+  source venv/bin/activate
+
+Después de activar, verás "(venv)" al inicio de la línea de comandos. Esto significa que estás dentro del entorno virtual.
+
+5. Instalar las dependencias
+-----------------------------
+Con el entorno virtual activado, instala las librerías que necesita el proyecto:
+
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+Esto puede tomar unos minutos. Espera a que termine.
+
+6. Verificar la configuración
+-----------------------------
+El proyecto ya está configurado para usar una base de datos en la nube. No necesitas instalar PostgreSQL localmente.
+El archivo ".env" ya tiene las credenciales correctas para conectarse a la base de datos.
+
+7. Levantar la aplicación
+-------------------------
+Con el entorno virtual activado, ejecuta:
+
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+La aplicación estará disponible en http://localhost:8000
+
+Para detenerla, presiona Ctrl+C en la terminal.
+
+8. Ejecutar los tests
+---------------------
+Con la aplicación corriendo (o no, los tests usan su propia conexión), ejecuta:
+
+python -m pytest -q
+
+Esto ejecuta todas las pruebas. Si todo está bien, verás algo como "3 passed" al final.
+
+Para ejecutar un test específico:
+
+python -m pytest -q tests/test_api.py::TestAuth::test_login_success
+
+9. Ver la documentación
+-----------------------
+Abre tu navegador web y ve a http://localhost:8000/docs
+
+Ahí puedes probar los endpoints de la API interactivamente.
+
+10. Colección de Postman
+------------------------
+Se incluye una colección de Postman llamada 'SGAH_Collection.postman_collection.json' en la raíz del proyecto. Importa este archivo en Postman para probar los endpoints fácilmente.
+
+11. Autenticación JWT
+---------------------
+Para acceder a los endpoints protegidos, necesitas obtener un token JWT primero. Usa las credenciales de prueba para hacer login en /auth/login y obtén el token. Luego, incluye el token en el header 'Authorization' como 'Bearer <token>' en todas las requests que lo requieran.
+
+12. Credenciales de prueba
+--------------------------
+- Usuario: admin@sgah.com
+- Contraseña: Admin123
+
+13. Comandos útiles
+-------------------
+- Para desactivar el entorno virtual: deactivate
+- Para limpiar cachés: rm -rf __pycache__ .pytest_cache (en macOS/Linux) o del __pycache__ /s /q en Windows.
+
+Si algo no funciona, verifica que estés en el entorno virtual activado y que tengas conexión a internet (la base de datos está en la nube).

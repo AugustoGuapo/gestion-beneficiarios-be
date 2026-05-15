@@ -10,7 +10,7 @@ class FocoSanitario(Base):
 
     id_foco = Column(Integer, primary_key=True, index=True)
     id_zona = Column(Integer, ForeignKey("zona.id_zona", ondelete="SET NULL", onupdate="CASCADE"), nullable=True)
-    id_albergue = Column(Integer, ForeignKey("albergue.id_albergue", ondelete="SET NULL", onupdate="CASCADE"), nullable=True)
+    id_refugio = Column(Integer, ForeignKey("refugios.id", ondelete="SET NULL", onupdate="CASCADE"), nullable=True)
     tipo_vector = Column(String(50), nullable=False)
     nivel_riesgo = Column(String(20), nullable=False)
     acciones_tomadas = Column(Text, nullable=True)
@@ -34,8 +34,8 @@ class FocoSanitario(Base):
             name="ck_foco_estado",
         ),
         CheckConstraint(
-            "id_zona IS NOT NULL OR id_albergue IS NOT NULL",
-            name="ck_foco_zona_o_albergue",
+            "id_zona IS NOT NULL OR id_refugio IS NOT NULL",
+            name="ck_foco_zona_o_refugio",
         ),
     )
 

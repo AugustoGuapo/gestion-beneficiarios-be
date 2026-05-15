@@ -19,4 +19,5 @@ INSERT INTO configuracion_puntaje (clave, valor, descripcion) VALUES
 ('peso_enfermedad', 1.5, 'Puntos por persona con enfermedad crónica'),
 ('peso_zona', 1.0, 'Factor multiplicador según zona'),
 ('peso_dias_sin_ayuda', 0.5, 'Puntos por día sin recibir ayuda'),
-('tope_dias', 30, 'Máximo de días a considerar');
+('tope_dias', 30, 'Máximo de días a considerar')
+ON CONFLICT (clave) DO NOTHING;

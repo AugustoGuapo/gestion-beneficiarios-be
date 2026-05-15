@@ -14,3 +14,6 @@ class Familia(Base):
     )
     fecha_registro = Column(DateTime, default=datetime.utcnow)
     puntaje_prioridad = Column(Float, default=0.0)
+    id_zona = Column(
+        Integer, ForeignKey("zona.id_zona"), nullable=True
+    )
