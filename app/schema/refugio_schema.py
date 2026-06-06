@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
 from typing import Optional
 
@@ -25,19 +25,17 @@ class RefugioResponse(BaseModel):
     ocupacion_actual: int
     zona_id: Optional[int]
     fecha_registro: datetime
-    ocupacion_porcentaje: float = Field(..., description="Occupancy percentage")
-    has_alerta: bool = Field(..., description="Alert if occupancy > 90%")
+    ocupacion_porcentaje: float = Field(0.0, description="Occupancy percentage")
+    has_alerta: bool = Field(False, description="Alert if occupancy > 90%")
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        # Calculate occupancy percentage
+    @model_validator(mode="after")
+    def calcular_ocupacion(self) -> "RefugioResponse":
+        capacidad = float(self.capacidad_maxima_personas)
+        ocupacion = float(self.ocupacion_actual)
         self.ocupacion_porcentaje = (
-            (self.ocupacion_actual / self.capacidad_maxima_personas * 100)
-            if self.capacidad_maxima_personas > 0
-            else 0
+            (ocupacion / capacidad * 100) if capacidad > 0 else 0.0
         )
-        # Alert if occupancy > 90%
         self.has_alerta = self.ocupacion_porcentaje > 90
+        return self

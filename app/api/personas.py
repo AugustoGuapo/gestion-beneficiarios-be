@@ -3,20 +3,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.services.puntaje_service import recalcular_puntaje_familia
-from app.application.services.puntaje_service import (
-    recalcular_puntaje_familia,
-)
 from app.core.constants import UserRole
 from app.core.security import check_role
 from app.domain.models.familia import Familia
 from app.domain.models.persona import Persona
 from app.infrastructure.db.session import get_db
 from app.schema.persona_schema import PersonaCreate, PersonaResponse, PersonaUpdate
-from app.schema.persona_schema import (
-    PersonaCreate,
-    PersonaResponse,
-    PersonaUpdate,
-)
 
 router = APIRouter(prefix="/personas", tags=["personas"])
 

@@ -11,7 +11,17 @@ ALTER TABLE persona
     ADD COLUMN IF NOT EXISTS tiene_enfermedad_cronica BOOLEAN DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS es_cabeza_familia BOOLEAN DEFAULT FALSE;
 
-ALTER TABLE persona
-    ADD CONSTRAINT fk_persona_familia
-    FOREIGN KEY (id_familia) REFERENCES familia(id_familia)
-    ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints
+        WHERE table_name = 'persona'
+          AND constraint_name = 'fk_persona_familia'
+    ) THEN
+        ALTER TABLE persona
+            ADD CONSTRAINT fk_persona_familia
+            FOREIGN KEY (id_familia) REFERENCES familia(id_familia)
+            ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END
+$$;
