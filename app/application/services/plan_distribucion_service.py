@@ -1,8 +1,8 @@
 import logging
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.models.familia import Familia
-from app.domain.models.inventario import Inventario
+from app.application.services.inventario_service import InventarioService
 from app.domain.models.plan_distribucion import PlanDistribucion, DetallePlanDistribucion
 from app.domain.models.recurso import Recurso
 from datetime import datetime
@@ -12,19 +12,17 @@ logger = logging.getLogger(__name__)
 
 async def _obtener_recursos_disponibles(db: AsyncSession) -> list[dict]:
     """
-    Consulta recursos con stock disponible en el inventario consolidado.
-    Retorna lista de {id_recurso, cantidad} ordenada por prioridad (mayor stock primero).
+    Consulta recursos con stock disponible desde MovimientoInventario.
+    Retorna lista de {id_recurso, cantidad} ordenada por mayor stock primero.
     """
-    result = await db.execute(
-        select(Inventario)
-        .where(Inventario.cantidad > 0)
-        .order_by(Inventario.cantidad.desc())
-    )
-    stock = result.scalars().all()
-    return [
-        {"id_recurso": int(s.recurso_id), "cantidad": int(s.cantidad)}
-        for s in stock
+    consulta = await InventarioService.consultar(db, id_bodega=None)
+    recursos = [
+        {"id_recurso": linea.id_recurso, "cantidad": linea.cantidad_total}
+        for linea in consulta.consolidado
+        if linea.cantidad_total > 0
     ]
+    recursos.sort(key=lambda r: r["cantidad"], reverse=True)
+    return recursos
 
 
 async def _asignar_recursos_por_familia(

@@ -9,6 +9,7 @@ from app.core.config import Settings
 engine = create_async_engine(
     Settings().database_url,
     echo=True,
+    connect_args={"statement_cache_size": 0},
 )
 
 SessionLocal = async_sessionmaker(
