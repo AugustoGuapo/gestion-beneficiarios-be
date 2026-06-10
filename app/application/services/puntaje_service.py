@@ -5,7 +5,7 @@ from app.domain.models.persona import Persona
 from app.domain.models.familia import Familia
 from app.domain.models.configuracion_puntaje import ConfiguracionPuntaje
 from app.domain.models.zona import Zona
-from datetime import datetime, timezone
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +105,7 @@ async def recalcular_puntaje_familia(db: AsyncSession, familia_id: int) -> float
 
     # Días sin ayuda: desde fecha de registro
     if familia.fecha_registro:
-        dias_desde_registro = (datetime.now(timezone.utc) - familia.fecha_registro).days
+        dias_desde_registro = (datetime.utcnow() - familia.fecha_registro).days
         tope = int(config.get("tope_dias", 30))
         dias_considerados = min(max(dias_desde_registro, 0), tope)
         puntaje += config.get("peso_dias_sin_ayuda", 0.5) * dias_considerados
