@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.api import (
     audit_logs,
     auth,
@@ -21,6 +22,7 @@ from app.api import (
 )
 from app.api.donantes import router as donantes_router
 from app.core.audit_middleware import AuditMiddleware
+from app.core.config import settings
 from app.domain.models.donante import Donante
 from app.domain.models.movimiento_inventario import MovimientoInventario
 from app.domain.models.persona import Persona
@@ -29,6 +31,15 @@ from app.infrastructure.db.base import Base
 from app.infrastructure.db.session import engine
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.add_middleware(AuditMiddleware)
 
 

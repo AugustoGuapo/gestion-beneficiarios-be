@@ -1,4 +1,7 @@
+from typing import List
+
 from pydantic_settings import BaseSettings
+
 
 class Settings(BaseSettings):
     db_user: str
@@ -9,6 +12,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"
     jwt_expiration_minutes: int = 60
+    cors_origins: List[str] = ["http://localhost:5173", "http://localhost:3000", "http://localhost"]
 
     @property
     def database_url(self) -> str:
@@ -20,5 +24,6 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+
 
 settings = Settings()
